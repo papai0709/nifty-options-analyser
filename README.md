@@ -13,17 +13,23 @@
 
 ## 🌟 Key Features
 
-### 1. 🎯 Optimal Pullback Entry Advisor
-- **Trade Patience Assistant**: Prevents chasing green candles at market highs. Automatically calculates an optimal pullback limit entry sweet-spot.
-- **Dynamic Status Alerts**:
-  - `⏳ WAIT FOR PULLBACK`: Alerts the trader when current market LTP is above the optimal entry and shows required dip points.
-  - `🟢 READY FOR ENTRY`: Triggers when market retraces to your limit price sweet-spot.
-  - `⚠️ BELOW ENTRY`: Flags if price slips under limit level, advising SL caution.
-- **Quick Entry Presets**:
-  - `Auto Pullback` (Greeks & volatility weighted limit order)
-  - `-5% Dip` (Conservative retracement)
-  - `-8% Dip` (Deep pullback entry)
-  - `At CMP` (Aggressive breakout entry at current market price)
+### 1. 🎯 Dual-Mode Optimal Entry Advisor (Breakout & Pullback)
+- **Trade Execution Assistant**: Prevents both premature entries during consolidations and FOMO chasing at candle peaks. Automatically supports two distinct execution philosophies:
+  - **🚀 Breakout / Momentum Setup (Entry Trigger ABOVE CMP)**:
+    - `⏳ WAIT FOR BREAKOUT`: Displays when target entry is set above current market price (e.g. buying after a resistance cross). Alerts the trader to wait for price to rally +₹X (+Y%) to confirm momentum before entering.
+    - `🚀 BREAKOUT TRIGGERED`: Fires when live LTP crosses above your trigger price. Flashes neon-green with live execution instructions and sounds an audio chime (`🔔`).
+  - **🎯 Pullback / Support Setup (Entry Limit BELOW CMP)**:
+    - `⏳ WAIT FOR PULLBACK`: Displays when target entry is set below CMP. Shows required dip points into support to maximize Risk-to-Reward ratio.
+    - `🎯 PULLBACK ENTRY REACHED`: Fires when price retraces down into your limit order sweet-spot.
+- **⚡ Quick Entry Preset Chips**:
+  - `Auto Pullback` (Greeks, Delta, and volatility-weighted limit order)
+  - `-5% Dip` (Moderate pullback retracement limit order)
+  - `-8% Dip` (Deep support pullback limit order)
+  - `At CMP` (Instant market execution at prevailing price)
+  - `+5% Breakout` (Momentum entry trigger 5% above CMP)
+  - `+10% Breakout` (Major resistance cross trigger 10% above CMP)
+  - `Custom Numeric Entry`: Type any price higher or lower than CMP — the system automatically identifies Breakout vs Pullback mode.
+- **🔔 Audio Alerts**: Built-in Web Audio API chime plays in real-time when any entry level is triggered so you never miss an execution.
 
 ---
 
