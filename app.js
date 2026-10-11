@@ -83,6 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
         chipEntryDip5: document.getElementById('chipEntryDip5'),
         chipEntryDip8: document.getElementById('chipEntryDip8'),
         chipEntryCmp: document.getElementById('chipEntryCmp'),
+        chipEntryBreak5: document.getElementById('chipEntryBreak5'),
+        chipEntryBreak10: document.getElementById('chipEntryBreak10'),
 
         // Entry Advisor Banner Elements
         entryAdvisorCard: document.getElementById('entryAdvisorCard'),
@@ -394,11 +396,23 @@ document.addEventListener('DOMContentLoaded', () => {
         el.advDistance.textContent = `${diffSign}₹${entryStatus.diffPoints.toFixed(2)} (${diffSign}${entryStatus.diffPercent.toFixed(1)}%)`;
 
         if (entryStatus.status === 'WAIT') {
-            el.advisorBadge.textContent = '⏳ WAIT FOR ENTRY';
-            el.advisorMessageText.innerHTML = `⏳ <strong>WAIT FOR ENTRY:</strong> Current LTP is ₹${entryStatus.currentLTP.toFixed(2)}, which is above the optimal limit entry zone (₹${entryStatus.targetEntry.toFixed(2)}). <strong>Wait for a ₹${Math.abs(entryStatus.diffPoints).toFixed(2)} (${Math.abs(entryStatus.diffPercent).toFixed(1)}%) pullback</strong> into support to avoid FOMO and maintain positive Risk:Reward!`;
+            if (entryStatus.mode === 'BREAKOUT') {
+                el.advisorBadge.textContent = '⏳ WAIT FOR BREAKOUT';
+                const ptsRemaining = Math.abs(entryStatus.diffPoints);
+                const pctRemaining = Math.abs(entryStatus.diffPercent);
+                el.advisorMessageText.innerHTML = `⏳ <strong>WAIT FOR BREAKOUT:</strong> Current price is ₹${entryStatus.currentLTP.toFixed(2)}. Breakout trigger level is <strong>₹${entryStatus.targetEntry.toFixed(2)}</strong> (+₹${ptsRemaining.toFixed(2)} / +${pctRemaining.toFixed(1)}% above CMP). <strong>Wait for price to cross above ₹${entryStatus.targetEntry.toFixed(2)} to confirm upside momentum</strong> before entering!`;
+            } else {
+                el.advisorBadge.textContent = '⏳ WAIT FOR PULLBACK';
+                el.advisorMessageText.innerHTML = `⏳ <strong>WAIT FOR PULLBACK:</strong> Current LTP is ₹${entryStatus.currentLTP.toFixed(2)}, which is above the optimal limit entry zone (₹${entryStatus.targetEntry.toFixed(2)}). <strong>Wait for a ₹${Math.abs(entryStatus.diffPoints).toFixed(2)} (${Math.abs(entryStatus.diffPercent).toFixed(1)}%) pullback</strong> into support to avoid FOMO and maintain positive Risk:Reward!`;
+            }
         } else if (entryStatus.status === 'TRIGGERED') {
-            el.advisorBadge.textContent = '🎯 ENTRY TRIGGERED';
-            el.advisorMessageText.innerHTML = `🎯 <strong>ENTRY ZONE ACTIVE:</strong> Price has reached the optimal limit entry level (₹${entryStatus.targetEntry.toFixed(2)}). Your 1:${state.riskRewardRatio.toFixed(1)} Risk:Reward ratio is active. Ready to execute!`;
+            if (entryStatus.mode === 'BREAKOUT') {
+                el.advisorBadge.textContent = '🚀 BREAKOUT TRIGGERED';
+                el.advisorMessageText.innerHTML = `🚀 <strong>BREAKOUT CONFIRMED:</strong> Price has crossed your breakout level (<strong>₹${entryStatus.targetEntry.toFixed(2)}</strong>) at ₹${entryStatus.currentLTP.toFixed(2)}! Resistance broken with momentum. Ready to execute Buy order!`;
+            } else {
+                el.advisorBadge.textContent = '🎯 ENTRY TRIGGERED';
+                el.advisorMessageText.innerHTML = `🎯 <strong>ENTRY ZONE ACTIVE:</strong> Price has reached the optimal limit entry level (₹${entryStatus.targetEntry.toFixed(2)}). Your 1:${state.riskRewardRatio.toFixed(1)} Risk:Reward ratio is active. Ready to execute!`;
+            }
         } else {
             el.advisorBadge.textContent = '⛔ SETUP INVALIDATED';
             el.advisorMessageText.innerHTML = `⛔ <strong>AVOID ENTRY:</strong> Current price (₹${entryStatus.currentLTP.toFixed(2)}) is below the Stop Loss threshold. Setup is invalidated; do not enter.`;
@@ -713,13 +727,22 @@ Break-Even Index: ${targetSL.breakEvenSpot.toFixed(2)} | Effective RR: ${targetS
     // =========================================================
 
     // Optimal Entry Input & Quick Chips
+    const allEntryChips = [el.chipEntryAuto, el.chipEntryDip5, el.chipEntryDip8, el.chipEntryCmp, el.chipEntryBreak5, el.chipEntryBreak10];
+
     if (el.inputTargetEntry) {
         el.inputTargetEntry.addEventListener('input', (e) => {
             const val = parseFloat(e.target.value);
             state.customTargetEntry = isNaN(val) ? null : val;
             state.entryMode = 'custom';
-            el.badgeEntryMode.textContent = 'Custom Limit';
-            [el.chipEntryAuto, el.chipEntryDip5, el.chipEntryDip8, el.chipEntryCmp].forEach(c => c && c.classList.remove('active'));
+            const currLTP = parseFloat(el.inputPremium.value) || 100;
+            if (state.customTargetEntry && state.customTargetEntry > currLTP * 1.002) {
+                el.badgeEntryMode.textContent = '🚀 Breakout Setup';
+            } else if (state.customTargetEntry && state.customTargetEntry < currLTP * 0.998) {
+                el.badgeEntryMode.textContent = '🎯 Pullback Setup';
+            } else {
+                el.badgeEntryMode.textContent = 'Custom Limit';
+            }
+            allEntryChips.forEach(c => c && c.classList.remove('active'));
             recalculateAll();
         });
     }
@@ -729,7 +752,7 @@ Break-Even Index: ${targetSL.breakEvenSpot.toFixed(2)} | Effective RR: ${targetS
             state.customTargetEntry = null;
             state.entryMode = 'auto';
             el.badgeEntryMode.textContent = 'Auto Pullback';
-            [el.chipEntryAuto, el.chipEntryDip5, el.chipEntryDip8, el.chipEntryCmp].forEach(c => c && c.classList.remove('active'));
+            allEntryChips.forEach(c => c && c.classList.remove('active'));
             if (el.chipEntryAuto) el.chipEntryAuto.classList.add('active');
             recalculateAll();
         });
@@ -740,7 +763,7 @@ Break-Even Index: ${targetSL.breakEvenSpot.toFixed(2)} | Effective RR: ${targetS
             state.customTargetEntry = null;
             state.entryMode = 'auto';
             el.badgeEntryMode.textContent = 'Auto Pullback';
-            [el.chipEntryAuto, el.chipEntryDip5, el.chipEntryDip8, el.chipEntryCmp].forEach(c => c && c.classList.remove('active'));
+            allEntryChips.forEach(c => c && c.classList.remove('active'));
             el.chipEntryAuto.classList.add('active');
             recalculateAll();
         });
@@ -752,7 +775,7 @@ Break-Even Index: ${targetSL.breakEvenSpot.toFixed(2)} | Effective RR: ${targetS
             state.customTargetEntry = Math.round(curr * 0.95 * 100) / 100;
             state.entryMode = 'dip5';
             el.badgeEntryMode.textContent = '-5% Dip';
-            [el.chipEntryAuto, el.chipEntryDip5, el.chipEntryDip8, el.chipEntryCmp].forEach(c => c && c.classList.remove('active'));
+            allEntryChips.forEach(c => c && c.classList.remove('active'));
             el.chipEntryDip5.classList.add('active');
             el.inputTargetEntry.value = state.customTargetEntry.toFixed(2);
             recalculateAll();
@@ -765,7 +788,7 @@ Break-Even Index: ${targetSL.breakEvenSpot.toFixed(2)} | Effective RR: ${targetS
             state.customTargetEntry = Math.round(curr * 0.92 * 100) / 100;
             state.entryMode = 'dip8';
             el.badgeEntryMode.textContent = '-8% Dip';
-            [el.chipEntryAuto, el.chipEntryDip5, el.chipEntryDip8, el.chipEntryCmp].forEach(c => c && c.classList.remove('active'));
+            allEntryChips.forEach(c => c && c.classList.remove('active'));
             el.chipEntryDip8.classList.add('active');
             el.inputTargetEntry.value = state.customTargetEntry.toFixed(2);
             recalculateAll();
@@ -778,8 +801,34 @@ Break-Even Index: ${targetSL.breakEvenSpot.toFixed(2)} | Effective RR: ${targetS
             state.customTargetEntry = curr;
             state.entryMode = 'cmp';
             el.badgeEntryMode.textContent = 'At CMP';
-            [el.chipEntryAuto, el.chipEntryDip5, el.chipEntryDip8, el.chipEntryCmp].forEach(c => c && c.classList.remove('active'));
+            allEntryChips.forEach(c => c && c.classList.remove('active'));
             el.chipEntryCmp.classList.add('active');
+            el.inputTargetEntry.value = state.customTargetEntry.toFixed(2);
+            recalculateAll();
+        });
+    }
+
+    if (el.chipEntryBreak5) {
+        el.chipEntryBreak5.addEventListener('click', () => {
+            const curr = parseFloat(el.inputPremium.value) || 100;
+            state.customTargetEntry = Math.round(curr * 1.05 * 100) / 100;
+            state.entryMode = 'break5';
+            el.badgeEntryMode.textContent = '+5% Breakout';
+            allEntryChips.forEach(c => c && c.classList.remove('active'));
+            el.chipEntryBreak5.classList.add('active');
+            el.inputTargetEntry.value = state.customTargetEntry.toFixed(2);
+            recalculateAll();
+        });
+    }
+
+    if (el.chipEntryBreak10) {
+        el.chipEntryBreak10.addEventListener('click', () => {
+            const curr = parseFloat(el.inputPremium.value) || 100;
+            state.customTargetEntry = Math.round(curr * 1.10 * 100) / 100;
+            state.entryMode = 'break10';
+            el.badgeEntryMode.textContent = '+10% Breakout';
+            allEntryChips.forEach(c => c && c.classList.remove('active'));
+            el.chipEntryBreak10.classList.add('active');
             el.inputTargetEntry.value = state.customTargetEntry.toFixed(2);
             recalculateAll();
         });

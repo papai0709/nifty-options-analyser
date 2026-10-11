@@ -312,26 +312,62 @@ function calculateOptimalEntryAndStatus({
     const diff = currentLTP - targetEntry;
     const diffPct = (diff / targetEntry) * 100;
 
+    const isAboveCMP = targetEntry > currentLTP * 1.002;
+    const isBelowCMP = targetEntry < currentLTP * 0.998;
+
+    let mode = 'AT_CMP'; // 'BREAKOUT', 'PULLBACK', 'AT_CMP'
+    if (isAboveCMP) mode = isBuyer ? 'BREAKOUT' : 'PREMIUM_SPIKE';
+    else if (isBelowCMP) mode = isBuyer ? 'PULLBACK' : 'PREMIUM_DIP';
+
     let status = 'WAIT'; // 'WAIT', 'TRIGGERED', 'INVALIDATED'
     let statusClass = 'status-wait';
     let message = '';
+    let modeLabel = 'Optimal Entry';
 
     if (isBuyer) {
         if (slPrice !== null && currentLTP < slPrice) {
             status = 'INVALIDATED';
             statusClass = 'status-invalid';
+            modeLabel = 'Setup Invalid';
             message = `⛔ Setup Invalidated: Current price (₹${currentLTP.toFixed(2)}) has broken below Stop Loss (₹${slPrice.toFixed(2)}). Do NOT enter this strike; wait for new setup.`;
-        } else if (currentLTP <= targetEntry * 1.008 && currentLTP >= (slPrice || 0)) {
+        } else if (mode === 'BREAKOUT') {
+            modeLabel = 'Breakout Setup (Above CMP)';
+            // Buyer waiting for breakout: currentLTP must rise to or cross targetEntry
+            if (currentLTP >= targetEntry) {
+                status = 'TRIGGERED';
+                statusClass = 'status-triggered';
+                message = `🚀 BREAKOUT CONFIRMED / TRIGGERED! Price has crossed Breakout Trigger (₹${targetEntry.toFixed(2)}) at ₹${currentLTP.toFixed(2)}! Resistance broken with momentum. Execute Buy order now!`;
+            } else {
+                status = 'WAIT';
+                statusClass = 'status-wait';
+                const ptsRemaining = Math.abs(targetEntry - currentLTP);
+                const pctRemaining = (ptsRemaining / currentLTP) * 100;
+                message = `⏳ WAIT FOR BREAKOUT: Current price (₹${currentLTP.toFixed(2)}) is below Breakout Trigger (₹${targetEntry.toFixed(2)}). Waiting for +₹${ptsRemaining.toFixed(2)} (+${pctRemaining.toFixed(1)}%) upside breakout confirmation. Do NOT enter early!`;
+            }
+        } else if (mode === 'PULLBACK') {
+            modeLabel = 'Pullback Setup (Below CMP)';
+            // Buyer waiting for dip: currentLTP must retrace down into targetEntry
+            if (currentLTP <= targetEntry * 1.008 && currentLTP >= (slPrice || 0)) {
+                status = 'TRIGGERED';
+                statusClass = 'status-triggered';
+                message = `🎯 OPTIMAL PULLBACK ZONE REACHED! Price dipped to ₹${currentLTP.toFixed(2)} (Target: ₹${targetEntry.toFixed(2)}). Ideal Risk-to-Reward ratio active. Execute order now!`;
+            } else {
+                status = 'WAIT';
+                statusClass = 'status-wait';
+                const ptsRemaining = Math.abs(currentLTP - targetEntry);
+                const pctRemaining = (ptsRemaining / currentLTP) * 100;
+                message = `⏳ WAIT FOR PULLBACK: Current price (₹${currentLTP.toFixed(2)}) is higher than Ideal Dip (₹${targetEntry.toFixed(2)}). Wait for a ₹${ptsRemaining.toFixed(2)} (${pctRemaining.toFixed(1)}%) pullback into support! Avoid FOMO market orders.`;
+            }
+        } else {
+            // At CMP
+            modeLabel = 'At CMP';
             status = 'TRIGGERED';
             statusClass = 'status-triggered';
-            message = `🎯 OPTIMAL ENTRY ZONE REACHED! Price is at ₹${currentLTP.toFixed(2)} (Target: ₹${targetEntry.toFixed(2)}). Ideal Risk-to-Reward ratio active. Execute order now!`;
-        } else if (currentLTP > targetEntry) {
-            status = 'WAIT';
-            statusClass = 'status-wait';
-            message = `⏳ WAIT FOR ENTRY: Current price (₹${currentLTP.toFixed(2)}) is higher than Ideal Entry (₹${targetEntry.toFixed(2)}). Wait for a ₹${Math.abs(diff).toFixed(2)} (${Math.abs(diffPct).toFixed(1)}%) pullback into support! Avoid FOMO market orders.`;
+            message = `🎯 AT CMP ENTRY: Price is at ₹${currentLTP.toFixed(2)}. Market entry active at prevailing price.`;
         }
     } else {
-        // Seller perspective
+        // Seller perspective (Options Writing)
+        modeLabel = 'Sell Entry';
         if (currentLTP >= targetEntry * 0.992) {
             status = 'TRIGGERED';
             statusClass = 'status-triggered';
@@ -339,7 +375,8 @@ function calculateOptimalEntryAndStatus({
         } else {
             status = 'WAIT';
             statusClass = 'status-wait';
-            message = `⏳ WAIT FOR PREMIUM EXPANSION: Current price (₹${currentLTP.toFixed(2)}) is below Ideal Sell Entry (₹${targetEntry.toFixed(2)}). Wait for premium spike!`;
+            const ptsRemaining = Math.abs(targetEntry - currentLTP);
+            message = `⏳ WAIT FOR PREMIUM EXPANSION: Current price (₹${currentLTP.toFixed(2)}) is below Ideal Sell Entry (₹${targetEntry.toFixed(2)}). Waiting for +₹${ptsRemaining.toFixed(2)} spike before shorting!`;
         }
     }
 
@@ -348,6 +385,9 @@ function calculateOptimalEntryAndStatus({
         currentLTP: currentLTP,
         diffPoints: Math.round(diff * 100) / 100,
         diffPercent: Math.round(diffPct * 10) / 10,
+        mode: mode,
+        modeLabel: modeLabel,
+        isAboveCMP: isAboveCMP,
         status: status,
         statusClass: statusClass,
         message: message
