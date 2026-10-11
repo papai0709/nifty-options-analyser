@@ -139,3 +139,4 @@ nifty-options-analyser/
 
 This project is licensed under the [MIT License](LICENSE).
 # nifty-options-analyser
+# nifty-options-analyser
