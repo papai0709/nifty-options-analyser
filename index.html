@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indian Stock Market Options Greeks & Risk-Reward Analyser | Nifty & Sensex</title>
+    <meta name="description" content="Live Options Analysis terminal for Nifty 50 and Sensex. Calculate Black-Scholes Option Greeks (Delta, Theta, Gamma, Vega, Rho) and get automated Target and Stop Loss with Risk-to-Reward ratio.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top Navigation & Live Ticker Header -->
+    <header class="top-nav">
+        <div class="brand-group">
+            <div class="logo-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 17L9 11L13 15L21 7" stroke="#00F0FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M16 7H21V12" stroke="#00F0FF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="9" cy="11" r="2" fill="#10B981"/>
+                    <circle cx="13" cy="15" r="2" fill="#EF4444"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="brand-title">ALPHA<span class="gradient-text">GREEKS</span></h1>
+                <p class="brand-subtitle">NSE & BSE F&O Quant Terminal</p>
+            </div>
+        </div>
+
+        <!-- Live Indices Ticker Strip -->
+        <div class="ticker-strip" id="tickerStrip">
+            <div class="ticker-pill active-ticker" data-index="NIFTY" id="tickerNifty">
+                <span class="ticker-symbol">NIFTY 50</span>
+                <span class="ticker-price" id="tickNiftySpot">25,052.40</span>
+                <span class="ticker-change pos" id="tickNiftyChange">+134.80 (+0.54%)</span>
+            </div>
+            <div class="ticker-pill" data-index="SENSEX" id="tickerSensex">
+                <span class="ticker-symbol">SENSEX</span>
+                <span class="ticker-price" id="tickSensexSpot">81,965.80</span>
+                <span class="ticker-change pos" id="tickSensexChange">+395.20 (+0.49%)</span>
+            </div>
+            <div class="ticker-pill" data-index="BANKNIFTY" id="tickerBankNifty">
+                <span class="ticker-symbol">BANK NIFTY</span>
+                <span class="ticker-price" id="tickBankNiftySpot">51,380.20</span>
+                <span class="ticker-change pos" id="tickBankNiftyChange">+245.60 (+0.48%)</span>
+            </div>
+            <div class="vix-pill">
+                <span class="vix-label">INDIA VIX</span>
+                <span class="vix-val" id="tickVix">13.72</span>
+            </div>
+        </div>
+
+        <!-- Live Feed Status & Global Controls -->
+        <div class="nav-actions">
+            <!-- Zerodha Kite Connect Button -->
+            <button class="btn-kite" id="btnKiteConnect" title="Connect Zerodha Kite for live NSE/BSE tick feed">
+                <span class="kite-icon">🪁</span>
+                <span id="labelKiteConnect">Connect Zerodha</span>
+            </button>
+
+            <div class="status-badge" id="liveStatusBadge">
+                <span class="status-dot pulsing"></span>
+                <span class="status-text" id="liveStatusText">LIVE FEED</span>
+            </div>
+            <button class="icon-btn" id="btnToggleLive" title="Pause / Resume Live Simulation" aria-label="Toggle Live Simulation">
+                <svg id="iconPause" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="6" y="4" width="4" height="16" rx="1"/>
+                    <rect x="14" y="4" width="4" height="16" rx="1"/>
+                </svg>
+            </button>
+            <button class="icon-btn" id="btnSyncPrices" title="Force Sync Spot Price" aria-label="Sync Prices">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Layout -->
+    <main class="workspace-container">
+        <!-- LEFT COLUMN: Parameter Input Console -->
+        <section class="card input-console" aria-labelledby="consoleHeading">
+            <div class="card-header">
+                <div class="header-title-wrap">
+                    <span class="step-num">01</span>
+                    <h2 id="consoleHeading">Trade & Strike Setup</h2>
+                </div>
+                <button class="btn-text-subtle" id="btnResetDefaults" title="Reset to standard defaults">Reset</button>
+            </div>
+
+            <div class="console-body">
+                <!-- Select Index -->
+                <div class="form-group">
+                    <label class="form-label" for="indexSelect">Underlying Index</label>
+                    <div class="segmented-control" id="indexSelector">
+                        <button class="seg-btn active" data-index="NIFTY">NIFTY 50</button>
+                        <button class="seg-btn" data-index="SENSEX">SENSEX</button>
+                        <button class="seg-btn" data-index="BANKNIFTY">BANK NIFTY</button>
+                    </div>
+                </div>
+
+                <!-- Spot Price Input & Sync -->
+                <div class="form-group">
+                    <div class="label-row">
+                        <label class="form-label" for="inputSpot">Spot Price (₹)</label>
+                        <span class="tag-accent" id="badgeSpotStatus">Live Synced</span>
+                    </div>
+                    <div class="input-with-action">
+                        <input type="number" id="inputSpot" step="0.05" class="glass-input font-mono" placeholder="25050.00">
+                        <button class="input-action-btn" id="btnApplyCurrentSpot" title="Sync with current tick">Sync</button>
+                    </div>
+                </div>
+
+                <!-- Option Type (CE / PE) & Trade Action (BUY / SELL) -->
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label class="form-label">Option Type</label>
+                        <div class="segmented-control ce-pe-toggle" id="optionTypeToggle">
+                            <button class="seg-btn seg-ce active" data-type="CE">CE (Call)</button>
+                            <button class="seg-btn seg-pe" data-type="PE">PE (Put)</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Trade Action</label>
+                        <div class="segmented-control buy-sell-toggle" id="tradeActionToggle">
+                            <button class="seg-btn seg-buy active" data-action="BUY">BUY</button>
+                            <button class="seg-btn seg-sell" data-action="SELL">SELL</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Strike Price Selection -->
+                <div class="form-group">
+                    <div class="label-row">
+                        <label class="form-label" for="inputStrike">Strike Price (₹)</label>
+                        <span class="moneyness-pill" id="badgeMoneyness">ATM</span>
+                    </div>
+                    <input type="number" id="inputStrike" step="50" class="glass-input font-mono" placeholder="25050">
+                    <!-- Quick Strike Adjusters -->
+                    <div class="quick-chips-row">
+                        <button class="chip-btn" id="chipAtm">ATM</button>
+                        <button class="chip-btn" id="chipOtm1">OTM +1</button>
+                        <button class="chip-btn" id="chipItm1">ITM -1</button>
+                        <button class="chip-btn" id="chipStepMinus">-50</button>
+                        <button class="chip-btn" id="chipStepPlus">+50</button>
+                    </div>
+                </div>
+
+                <!-- Expiry Date & DTE -->
+                <div class="form-group">
+                    <div class="label-row">
+                        <label class="form-label" for="rangeDte">Days to Expiry (DTE)</label>
+                        <span class="val-display font-mono" id="valDteDisplay">3.5 Days</span>
+                    </div>
+                    <input type="range" id="rangeDte" min="0.1" max="30" step="0.1" value="3.5" class="glass-range">
+                    <div class="quick-chips-row">
+                        <button class="chip-btn" data-dte="0.2">0-DTE Today</button>
+                        <button class="chip-btn" data-dte="1.0">1 Day</button>
+                        <button class="chip-btn active" data-dte="3.5">Weekly</button>
+                        <button class="chip-btn" data-dte="14.0">2 Weeks</button>
+                        <button class="chip-btn" data-dte="28.0">Monthly</button>
+                    </div>
+                </div>
+
+                <!-- Implied Volatility (IV) & Interest Rate -->
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <div class="label-row">
+                            <label class="form-label" for="inputIV">IV (%)</label>
+                            <span class="subtle-hint" id="ivVixHint">Sync VIX</span>
+                        </div>
+                        <input type="number" id="inputIV" step="0.1" min="1" max="100" class="glass-input font-mono" value="13.8">
+                    </div>
+                    <div class="form-group">
+                        <div class="label-row">
+                            <label class="form-label" for="inputRate">Interest Rate (%)</label>
+                            <span class="subtle-hint">RBI 6.75%</span>
+                        </div>
+                        <input type="number" id="inputRate" step="0.25" min="1" max="15" class="glass-input font-mono" value="6.75">
+                    </div>
+                </div>
+
+                <!-- Entry Premium & Quantity -->
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <div class="label-row">
+                            <label class="form-label" for="inputPremium">Current Market LTP (₹)</label>
+                            <span class="badge-auto" id="badgeFairVal" title="Calculated Black-Scholes Fair Value">Fair: ₹0</span>
+                        </div>
+                        <input type="number" id="inputPremium" step="0.05" class="glass-input font-mono" placeholder="Auto">
+                    </div>
+                    <div class="form-group">
+                        <div class="label-row">
+                            <label class="form-label" for="inputLots">Position Lots</label>
+                            <span class="subtle-hint" id="labelLotSize">Lot: 25 Qty</span>
+                        </div>
+                        <input type="number" id="inputLots" min="1" max="100" class="glass-input font-mono" value="1">
+                    </div>
+                </div>
+
+                <!-- Highlighted Optimal Entry Price Configuration -->
+                <div class="form-group optimal-entry-group">
+                    <div class="label-row">
+                        <label class="form-label text-neon-gold" for="inputTargetEntry">🎯 Optimal Entry Price (₹)</label>
+                        <span class="tag-entry-status" id="badgeEntryMode">Auto Pullback</span>
+                    </div>
+                    <div class="input-with-action">
+                        <input type="number" id="inputTargetEntry" step="0.05" class="glass-input font-mono highlight-gold text-bold" placeholder="Auto Sweet Spot">
+                        <button class="input-action-btn" id="btnAutoEntry" title="Auto-calculate optimal pullback sweet spot">Auto</button>
+                    </div>
+                    <div class="quick-chips-row">
+                        <button class="chip-btn active" id="chipEntryAuto">Auto Pullback</button>
+                        <button class="chip-btn" id="chipEntryDip5">-5% Dip</button>
+                        <button class="chip-btn" id="chipEntryDip8">-8% Dip</button>
+                        <button class="chip-btn" id="chipEntryCmp">At CMP</button>
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- Step 2: Risk-Reward & Stop-Loss Engine -->
+                <div class="card-header-sub">
+                    <span class="step-num">02</span>
+                    <h3>Risk Management & RR Model</h3>
+                </div>
+
+                <!-- Risk Mode Selection -->
+                <div class="form-group">
+                    <label class="form-label">Stop-Loss Definition Mode</label>
+                    <div class="segmented-control" id="riskModeSelector">
+                        <button class="seg-btn active" data-mode="spot_pts">Spot Points</button>
+                        <button class="seg-btn" data-mode="premium_pct">Premium %</button>
+                        <button class="seg-btn" data-mode="capital_amt">Fixed ₹ Risk</button>
+                    </div>
+                </div>
+
+                <!-- Dynamic SL Input depending on mode -->
+                <div class="form-group" id="groupSlSpot">
+                    <div class="label-row">
+                        <label class="form-label" for="inputSlSpot">Index Spot Move SL (Points)</label>
+                        <span class="subtle-hint">Adverse Index points</span>
+                    </div>
+                    <input type="number" id="inputSlSpot" class="glass-input font-mono" value="30" step="5">
+                </div>
+
+                <div class="form-group hidden" id="groupSlPct">
+                    <div class="label-row">
+                        <label class="form-label" for="inputSlPct">Stop Loss on Premium (%)</label>
+                        <span class="subtle-hint">Max Loss % on entry</span>
+                    </div>
+                    <input type="number" id="inputSlPct" class="glass-input font-mono" value="20" step="1" min="5" max="80">
+                </div>
+
+                <div class="form-group hidden" id="groupSlAmt">
+                    <div class="label-row">
+                        <label class="form-label" for="inputSlAmt">Max Capital at Risk (₹)</label>
+                        <span class="subtle-hint">Hard loss threshold</span>
+                    </div>
+                    <input type="number" id="inputSlAmt" class="glass-input font-mono" value="1500" step="250">
+                </div>
+
+                <!-- Risk-to-Reward Preset -->
+                <div class="form-group">
+                    <div class="label-row">
+                        <label class="form-label" for="rangeRR">Target Risk : Reward Ratio</label>
+                        <span class="val-display font-mono text-neon-green" id="valRrDisplay">1 : 2.0</span>
+                    </div>
+                    <input type="range" id="rangeRR" min="1.0" max="4.0" step="0.1" value="2.0" class="glass-range">
+                    <div class="quick-chips-row">
+                        <button class="chip-btn" data-rr="1.5">1 : 1.5</button>
+                        <button class="chip-btn active" data-rr="2.0">1 : 2.0</button>
+                        <button class="chip-btn" data-rr="2.5">1 : 2.5</button>
+                        <button class="chip-btn" data-rr="3.0">1 : 3.0</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CENTER COLUMN: Targets, SL, Greek Metrics & Analytics -->
+        <section class="center-stage">
+            <!-- DYNAMIC ENTRY ADVISOR & PULLBACK MONITOR BANNER -->
+            <div class="card entry-advisor-card status-wait" id="entryAdvisorCard">
+                <div class="advisor-status-strip">
+                    <div class="advisor-indicator">
+                        <span class="advisor-pulse-ring" id="advisorPulseRing"></span>
+                        <span class="advisor-badge" id="advisorBadge">⏳ WAIT FOR ENTRY</span>
+                    </div>
+                    <div class="advisor-metrics">
+                        <div class="adv-metric">
+                            <span class="adv-lbl">Current LTP</span>
+                            <span class="adv-val font-mono" id="advCurrentLtp">₹145.00</span>
+                        </div>
+                        <div class="adv-metric highlight-entry">
+                            <span class="adv-lbl">Optimal Entry</span>
+                            <span class="adv-val font-mono text-neon-gold" id="advOptimalEntry">₹136.50</span>
+                        </div>
+                        <div class="adv-metric">
+                            <span class="adv-lbl">Distance</span>
+                            <span class="adv-val font-mono" id="advDistance">+₹8.50 (+6.2%)</span>
+                        </div>
+                    </div>
+                    <div class="advisor-actions">
+                        <button class="sound-toggle-btn active" id="btnToggleSound" title="Toggle audio chime when optimal entry reached">
+                            <span id="soundIcon">🔔</span>
+                            <span id="soundLabel">Alert: ON</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="advisor-message-box" id="advisorMessageBox">
+                    <p id="advisorMessageText">⏳ <strong>WAIT FOR ENTRY:</strong> Current LTP is higher than the optimal limit entry zone. Wait for a pullback into the support zone to protect capital and maximize Risk-Reward ratio.</p>
+                </div>
+            </div>
+
+            <!-- Active Trade Banner Card -->
+            <div class="card trade-verdict-card">
+                <div class="verdict-main">
+                    <div class="verdict-identity">
+                        <span class="action-tag" id="verdictActionTag">BUY</span>
+                        <div>
+                            <h2 class="verdict-strike-title" id="verdictTitle">NIFTY 25050 CE</h2>
+                            <p class="verdict-meta" id="verdictMeta">Spot: 25052.40 | DTE: 3.5d | IV: 13.8%</p>
+                        </div>
+                    </div>
+                    <div class="verdict-quick-stats">
+                        <div class="stat-pill">
+                            <span class="stat-lbl">Capital Req.</span>
+                            <span class="stat-val font-mono" id="statCapital">₹3,450</span>
+                        </div>
+                        <div class="stat-pill">
+                            <span class="stat-lbl">Break-Even Spot</span>
+                            <span class="stat-val font-mono" id="statBreakEven">25,188.00</span>
+                        </div>
+                        <div class="stat-pill">
+                            <span class="stat-lbl">Expected RR</span>
+                            <span class="stat-val font-mono text-neon-green" id="statEffectiveRR">1 : 2.0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visual Risk-Reward Meter -->
+                <div class="rr-visual-meter">
+                    <div class="meter-labels">
+                        <span class="text-neon-red font-mono" id="meterLossLabel">Max Risk: -₹1,250</span>
+                        <span class="meter-center-tick">ENTRY</span>
+                        <span class="text-neon-green font-mono" id="meterProfitLabel">Target 2: +₹2,500</span>
+                    </div>
+                    <div class="meter-bar-track">
+                        <div class="meter-bar-risk" id="meterRiskBar" style="width: 33.3%;"></div>
+                        <div class="meter-bar-reward" id="meterRewardBar" style="width: 66.7%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Target & Stop Loss Levels Matrix -->
+            <div class="card levels-card">
+                <div class="card-header">
+                    <div class="header-title-wrap">
+                        <span class="pulse-icon">🎯</span>
+                        <h2>Calculated Targets & Stop-Loss Levels</h2>
+                    </div>
+                    <span class="tag-status">Auto-Calculated via Greeks & RR</span>
+                </div>
+
+                <div class="levels-grid levels-5-grid">
+                    <!-- OPTIMAL ENTRY LEVEL CARD -->
+                    <div class="level-box box-entry highlighted-entry-box" id="boxEntryLevel">
+                        <div class="level-badge badge-entry">🎯 OPTIMAL ENTRY</div>
+                        <div class="level-price font-mono text-neon-gold" id="valEntryPrice">₹136.50</div>
+                        <div class="level-sub font-mono">
+                            <span class="text-neon-cyan" id="valEntryStatus">WAIT (-₹8.50)</span>
+                        </div>
+                        <div class="underlying-trigger">
+                            Index Retest: <span class="font-mono text-bold" id="valEntrySpotTrigger">25,038.00</span>
+                        </div>
+                    </div>
+
+                    <!-- STOP LOSS CARD -->
+                    <div class="level-box box-sl">
+                        <div class="level-badge badge-sl">STOP LOSS (SL)</div>
+                        <div class="level-price font-mono" id="valSlPrice">₹105.00</div>
+                        <div class="level-sub font-mono">
+                            <span class="text-neon-red" id="valSlPoints">-33.00 pts</span>
+                            <span class="text-muted" id="valSlInr">(-₹825)</span>
+                        </div>
+                        <div class="underlying-trigger">
+                            Index Trigger: <span class="font-mono text-bold" id="valSlSpotTrigger">25,022.40</span>
+                        </div>
+                    </div>
+
+                    <!-- TARGET 1 CARD -->
+                    <div class="level-box box-t1">
+                        <div class="level-badge badge-t1">TARGET 1 (T1)</div>
+                        <div class="level-price font-mono" id="valT1Price">₹187.50</div>
+                        <div class="level-sub font-mono">
+                            <span class="text-neon-green" id="valT1Points">+49.50 pts</span>
+                            <span class="text-muted" id="valT1Inr">(+₹1,237)</span>
+                        </div>
+                        <div class="underlying-trigger">
+                            RR 1:1.5 | Index: <span class="font-mono" id="valT1SpotTrigger">25,097.00</span>
+                        </div>
+                    </div>
+
+                    <!-- TARGET 2 CARD (MAIN) -->
+                    <div class="level-box box-t2 highlighted-target">
+                        <div class="level-badge badge-t2">TARGET 2 (T2 • MAIN)</div>
+                        <div class="level-price font-mono" id="valT2Price">₹204.00</div>
+                        <div class="level-sub font-mono">
+                            <span class="text-neon-green text-bold" id="valT2Points">+66.00 pts</span>
+                            <span class="text-neon-green text-bold" id="valT2Inr">(+₹1,650)</span>
+                        </div>
+                        <div class="underlying-trigger">
+                            RR 1:2.0 | Index: <span class="font-mono" id="valT2SpotTrigger">25,112.00</span>
+                        </div>
+                    </div>
+
+                    <!-- TARGET 3 CARD (RUNNER) -->
+                    <div class="level-box box-t3">
+                        <div class="level-badge badge-t3">TARGET 3 (T3 • RUNNER)</div>
+                        <div class="level-price font-mono" id="valT3Price">₹237.00</div>
+                        <div class="level-sub font-mono">
+                            <span class="text-neon-green" id="valT3Points">+99.00 pts</span>
+                            <span class="text-muted" id="valT3Inr">(+₹2,475)</span>
+                        </div>
+                        <div class="underlying-trigger">
+                            RR 1:3.0 | Index: <span class="font-mono" id="valT3SpotTrigger">25,142.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Option Greeks Display Matrix -->
+            <div class="card greeks-card">
+                <div class="card-header">
+                    <div class="header-title-wrap">
+                        <span class="pulse-icon">⚡</span>
+                        <h2>Black-Scholes Option Greeks Parameters</h2>
+                    </div>
+                    <span class="tag-status">European Analytical Model</span>
+                </div>
+
+                <div class="greeks-grid">
+                    <!-- DELTA -->
+                    <div class="greek-item">
+                        <div class="greek-top">
+                            <span class="greek-symbol">&Delta;</span>
+                            <span class="greek-name">DELTA</span>
+                        </div>
+                        <div class="greek-val font-mono" id="valGreekDelta">0.521</div>
+                        <p class="greek-impact" id="impactDelta">Per 1 pt Spot: &plusmn;₹13.0 / lot</p>
+                        <div class="greek-bar-wrap">
+                            <div class="greek-bar-fill" id="barDelta" style="width: 52%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- THETA -->
+                    <div class="greek-item">
+                        <div class="greek-top">
+                            <span class="greek-symbol">&Theta;</span>
+                            <span class="greek-name">THETA (1-DAY DECAY)</span>
+                        </div>
+                        <div class="greek-val font-mono text-neon-red" id="valGreekTheta">-14.20</div>
+                        <p class="greek-impact" id="impactTheta">Hourly: -₹2.27 | -₹355 / lot / day</p>
+                        <div class="greek-bar-wrap">
+                            <div class="greek-bar-fill decay" id="barTheta" style="width: 45%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- GAMMA -->
+                    <div class="greek-item">
+                        <div class="greek-top">
+                            <span class="greek-symbol">&Gamma;</span>
+                            <span class="greek-name">GAMMA</span>
+                        </div>
+                        <div class="greek-val font-mono" id="valGreekGamma">0.00164</div>
+                        <p class="greek-impact" id="impactGamma">&Delta; changes +0.16 per 100 pt move</p>
+                        <div class="greek-bar-wrap">
+                            <div class="greek-bar-fill gamma" id="barGamma" style="width: 60%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- VEGA -->
+                    <div class="greek-item">
+                        <div class="greek-top">
+                            <span class="greek-symbol">&nu;</span>
+                            <span class="greek-name">VEGA</span>
+                        </div>
+                        <div class="greek-val font-mono" id="valGreekVega">18.45</div>
+                        <p class="greek-impact" id="impactVega">Per 1% IV change: &plusmn;₹461 / lot</p>
+                        <div class="greek-bar-wrap">
+                            <div class="greek-bar-fill vega" id="barVega" style="width: 55%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- RHO -->
+                    <div class="greek-item">
+                        <div class="greek-top">
+                            <span class="greek-symbol">&rho;</span>
+                            <span class="greek-name">RHO</span>
+                        </div>
+                        <div class="greek-val font-mono" id="valGreekRho">1.28</div>
+                        <p class="greek-impact" id="impactRho">Per 1% Interest rate change</p>
+                        <div class="greek-bar-wrap">
+                            <div class="greek-bar-fill rho" id="barRho" style="width: 20%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Premium Value Decomposition -->
+                <div class="premium-decomposition">
+                    <div class="decomp-header">
+                        <span>Premium Composition Breakdown</span>
+                        <span class="font-mono" id="valDecompTotal">LTP: ₹138.00</span>
+                    </div>
+                    <div class="decomp-bar">
+                        <div class="decomp-intrinsic" id="barIntrinsic" style="width: 40%;" title="Intrinsic Value"></div>
+                        <div class="decomp-extrinsic" id="barExtrinsic" style="width: 60%;" title="Extrinsic (Time) Value"></div>
+                    </div>
+                    <div class="decomp-legend">
+                        <span class="leg-item"><span class="dot-int"></span> Intrinsic Value: <b class="font-mono" id="valIntrinsic">₹52.40</b></span>
+                        <span class="leg-item"><span class="dot-ext"></span> Time (Extrinsic) Value: <b class="font-mono" id="valExtrinsic">₹85.60</b></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT COLUMN: Option Chain & What-If P&L Simulator -->
+        <section class="card right-panel">
+            <div class="panel-tabs">
+                <button class="tab-btn active" data-tab="tabChain">Option Chain</button>
+                <button class="tab-btn" data-tab="tabSimulator">What-If P&L Simulator</button>
+                <button class="tab-btn" data-tab="tabNotes">Trading Checklist</button>
+            </div>
+
+            <!-- TAB 1: Live Option Chain Snippet -->
+            <div class="tab-content active" id="tabChain">
+                <div class="chain-header-bar">
+                    <span class="subtle-hint">Click any Strike CE or PE to load into calculator</span>
+                    <button class="btn-text-subtle" id="btnRefreshChain">Refresh Chain</button>
+                </div>
+                <div class="table-container">
+                    <table class="chain-table" id="optionChainTable">
+                        <thead>
+                            <tr>
+                                <th colspan="3" class="th-call">CALLS (CE)</th>
+                                <th class="th-strike">STRIKE</th>
+                                <th colspan="3" class="th-put">PUTS (PE)</th>
+                            </tr>
+                            <tr class="sub-head">
+                                <th>LTP</th>
+                                <th>Delta</th>
+                                <th>OI</th>
+                                <th>Strike</th>
+                                <th>OI</th>
+                                <th>Delta</th>
+                                <th>LTP</th>
+                            </tr>
+                        </thead>
+                        <tbody id="chainTableBody">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 2: What-If P&L Simulator -->
+            <div class="tab-content" id="tabSimulator">
+                <div class="sim-controls">
+                    <div class="form-group">
+                        <div class="label-row">
+                            <label class="form-label" for="simSpotSlider">Simulate Underlying Spot Movement</label>
+                            <span class="font-mono text-neon-cyan" id="simSpotVal">+0 pts (25052.40)</span>
+                        </div>
+                        <input type="range" id="simSpotSlider" min="-300" max="300" step="5" value="0" class="glass-range">
+                    </div>
+
+                    <div class="form-group">
+                        <div class="label-row">
+                            <label class="form-label" for="simHoldingDays">Simulate Holding Period</label>
+                            <span class="font-mono" id="simDaysVal">Intraday (0 Days Decay)</span>
+                        </div>
+                        <input type="range" id="simHoldingDays" min="0" max="5" step="0.5" value="0" class="glass-range">
+                    </div>
+
+                    <div class="sim-result-box">
+                        <div class="sim-result-row">
+                            <span>Projected Option Premium:</span>
+                            <span class="font-mono text-bold" id="simProjPrice">₹138.00</span>
+                        </div>
+                        <div class="sim-result-row">
+                            <span>Net Point Change:</span>
+                            <span class="font-mono" id="simNetPoints">+0.00 pts</span>
+                        </div>
+                        <div class="sim-result-row">
+                            <span>Total Estimated P&L:</span>
+                            <span class="font-mono text-bold text-neon-green" id="simTotalPnl">₹0</span>
+                        </div>
+                        <div class="sim-breakdown-row text-muted font-mono" id="simBreakdownDetails">
+                            &Delta; Impact: ₹0 | &Theta; Decay: ₹0 | &Gamma; Boost: ₹0
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payoff Visual Canvas -->
+                <div class="payoff-chart-wrap">
+                    <canvas id="payoffCanvas" width="400" height="180"></canvas>
+                </div>
+            </div>
+
+            <!-- TAB 3: Trading Checklist & Signal Summary -->
+            <div class="tab-content" id="tabNotes">
+                <div class="checklist-wrap">
+                    <h3>Risk-Reward Trade Checklist</h3>
+                    <div class="check-item">
+                        <input type="checkbox" id="chk1" checked>
+                        <label for="chk1">RR Ratio is minimum 1:1.5 or higher</label>
+                    </div>
+                    <div class="check-item">
+                        <input type="checkbox" id="chk2" checked>
+                        <label for="chk2">Delta is appropriate (&gt;0.45 for ATM/ITM momentum)</label>
+                    </div>
+                    <div class="check-item">
+                        <input type="checkbox" id="chk3" checked>
+                        <label for="chk3">Theta decay impact within risk budget for holding period</label>
+                    </div>
+                    <div class="check-item">
+                        <input type="checkbox" id="chk4">
+                        <label for="chk4">No imminent High-Impact RBI or Global Macro event</label>
+                    </div>
+                    <div class="check-item">
+                        <input type="checkbox" id="chk5">
+                        <label for="chk5">Underlying support/resistance matches Stop Loss level</label>
+                    </div>
+
+                    <div class="copy-order-card">
+                        <h4>Trade Summary for Order Placement</h4>
+                        <pre class="order-summary-text font-mono" id="orderSummaryText"></pre>
+                        <button class="btn-copy" id="btnCopySummary">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                            Copy Trade Plan
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer with Disclaimer and Indian Market Sessions note -->
+    <footer class="app-footer">
+        <div class="footer-content">
+            <p><strong>AlphaGreeks Quant Terminal</strong> &bull; Indian Indices Options Analysis (Nifty 50, BSE Sensex, Bank Nifty)</p>
+            <p class="disclaimer">Analytical tool for educational & informational purposes. Option trading involves substantial market risk. Please manage capital responsibly.</p>
+        </div>
+    </footer>
+
+    <!-- ZERODHA KITE CONNECT MODAL -->
+    <div class="modal-backdrop hidden" id="modalKite">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <span class="kite-logo-pill">🪁 KITE</span>
+                    <div>
+                        <h3>Zerodha Kite Connect Setup</h3>
+                        <p class="modal-subtitle">Stream live tick-by-tick market data from your Zerodha account</p>
+                    </div>
+                </div>
+                <button class="modal-close-btn" id="btnCloseKiteModal" aria-label="Close Modal">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <!-- Status Banner -->
+                <div class="kite-status-card" id="kiteStatusCard">
+                    <div class="k-stat-left">
+                        <span class="status-dot" id="kiteDot"></span>
+                        <div>
+                            <div class="k-stat-title font-mono" id="kiteStatusTitle">Disconnected</div>
+                            <div class="k-stat-sub text-muted" id="kiteStatusSub">Using high-fidelity market simulator</div>
+                        </div>
+                    </div>
+                    <button class="btn-text-subtle" id="btnDisconnectKite">Disconnect</button>
+                </div>
+
+                <!-- Tab switcher for direct token vs login flow -->
+                <div class="segmented-control" id="kiteTabControl">
+                    <button class="seg-btn active" data-kitetab="tabDirectToken">Direct Access Token</button>
+                    <button class="seg-btn" data-kitetab="tabLoginFlow">Login & Generate Token</button>
+                </div>
+
+                <!-- TAB 1: Direct Access Token -->
+                <div class="kite-tab-pane" id="tabDirectToken">
+                    <div class="form-group">
+                        <label class="form-label" for="kiteApiKey">Kite API Key</label>
+                        <input type="text" id="kiteApiKey" class="glass-input font-mono" placeholder="e.g. abcd1234xyz">
+                    </div>
+                    <div class="form-group">
+                        <div class="label-row">
+                            <label class="form-label" for="kiteAccessToken">Daily Access Token</label>
+                            <span class="subtle-hint">Valid for today's trading session</span>
+                        </div>
+                        <input type="password" id="kiteAccessToken" class="glass-input font-mono" placeholder="Paste your Kite Access Token">
+                    </div>
+                    <button class="btn-kite-action" id="btnSaveDirectToken">Connect & Start Live Stream</button>
+                </div>
+
+                <!-- TAB 2: Generate Token via Login -->
+                <div class="kite-tab-pane hidden" id="tabLoginFlow">
+                    <div class="form-group">
+                        <label class="form-label" for="kiteApiKeyLogin">Kite API Key</label>
+                        <input type="text" id="kiteApiKeyLogin" class="glass-input font-mono" placeholder="Your API Key from developer.kite.trade">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="kiteApiSecret">Kite API Secret</label>
+                        <input type="password" id="kiteApiSecret" class="glass-input font-mono" placeholder="Your API Secret">
+                    </div>
+                    <div class="step-guide">
+                        <p class="step-desc">1. Click below to open Zerodha Kite login in your browser:</p>
+                        <button class="btn-secondary-action" id="btnOpenKiteLogin">🔗 Open Zerodha Login</button>
+                        <p class="step-desc" style="margin-top:0.6rem;">2. After login, copy the <code>request_token=...</code> from the redirected address bar and paste here:</p>
+                        <input type="text" id="kiteRequestToken" class="glass-input font-mono" placeholder="Paste request_token">
+                    </div>
+                    <button class="btn-kite-action" id="btnExchangeToken">Exchange Token & Connect</button>
+                </div>
+
+                <div class="kite-help-note">
+                    <p>💡 <em>Note:</em> API Keys are created at <a href="https://developers.kite.trade" target="_blank" rel="noopener" style="color:var(--neon-cyan);">developers.kite.trade</a>. Credentials are saved locally on your machine in <code>kite_config.json</code> and never shared externally.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="greeks.js"></script>
+    <script src="marketData.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

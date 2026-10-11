@@ -1,0 +1,13 @@
+# Sensitive credentials
+kite_config.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS / Environment
+.DS_Store
+Thumbs.db
+*.log
+.env
