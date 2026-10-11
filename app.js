@@ -96,6 +96,26 @@ document.addEventListener('DOMContentLoaded', () => {
         soundIcon: document.getElementById('soundIcon'),
         soundLabel: document.getElementById('soundLabel'),
         advisorMessageText: document.getElementById('advisorMessageText'),
+        advOiPill: document.getElementById('advOiPill'),
+        advOiDetails: document.getElementById('advOiDetails'),
+
+        // OI Analytics Card Elements
+        valPcrHeaderTag: document.getElementById('valPcrHeaderTag'),
+        valPcrBadge: document.getElementById('valPcrBadge'),
+        valPcrNumber: document.getElementById('valPcrNumber'),
+        barPeOIPct: document.getElementById('barPeOIPct'),
+        barCeOIPct: document.getElementById('barCeOIPct'),
+        valPcrDesc: document.getElementById('valPcrDesc'),
+        valMaxPutStrike: document.getElementById('valMaxPutStrike'),
+        valMaxPutContracts: document.getElementById('valMaxPutContracts'),
+        valMaxCallStrike: document.getElementById('valMaxCallStrike'),
+        valMaxCallContracts: document.getElementById('valMaxCallContracts'),
+        valMaxPainStrike: document.getElementById('valMaxPainStrike'),
+        valMaxPainDistance: document.getElementById('valMaxPainDistance'),
+        oiTradeConfirmationBanner: document.getElementById('oiTradeConfirmationBanner'),
+        oiConfirmIcon: document.getElementById('oiConfirmIcon'),
+        oiConfirmTitle: document.getElementById('oiConfirmTitle'),
+        oiConfirmBody: document.getElementById('oiConfirmBody'),
 
         // Risk Engine Inputs
         riskModeButtons: document.querySelectorAll('#riskModeSelector .seg-btn'),
@@ -375,17 +395,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         state.previousEntryStatus = finalEntryStatus.status;
 
-        // 5. Update DOM components
-        updateEntryAdvisorUI(finalEntryStatus, greeks, S);
+        // 5. Generate Option Chain & OI Analytics
+        const chainData = window.marketFeed.generateOptionChain(
+            state.currentIndex,
+            state.dteDays,
+            state.ivPercent,
+            6
+        );
+        const oiAnalytics = chainData.oiAnalytics;
+
+        // Evaluate Strike-Specific OI Confirmation
+        const oiConfirmation = evaluateOIConfirmation({
+            optionType: state.optionType,
+            tradeAction: state.tradeAction,
+            strikePrice: K,
+            spotPrice: S,
+            oiData: oiAnalytics
+        });
+
+        // 6. Update DOM components
+        updateEntryAdvisorUI(finalEntryStatus, greeks, S, oiConfirmation);
+        updateOIAnalyticsUI(oiAnalytics, oiConfirmation, S, K);
         updateVerdictUI(greeks, targetSL, S, K, activeEntryLevel, currentLTP);
         updateLevelsUI(targetSL, finalEntryStatus, greeks, S);
         updateGreeksUI(greeks, currentLTP);
         updateSimulatorUI(greeks, activeEntryLevel, S);
-        updateTradeSummary(targetSL, greeks, finalEntryStatus);
+        updateTradeSummary(targetSL, greeks, finalEntryStatus, oiConfirmation);
     }
 
     // Dynamic Entry Advisor Banner UI Update
-    function updateEntryAdvisorUI(entryStatus, greeks, S) {
+    function updateEntryAdvisorUI(entryStatus, greeks, S, oiConfirmation) {
         if (!el.entryAdvisorCard) return;
 
         el.entryAdvisorCard.className = `card entry-advisor-card ${entryStatus.statusClass}`;
@@ -416,6 +455,76 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             el.advisorBadge.textContent = '⛔ SETUP INVALIDATED';
             el.advisorMessageText.innerHTML = `⛔ <strong>AVOID ENTRY:</strong> Current price (₹${entryStatus.currentLTP.toFixed(2)}) is below the Stop Loss threshold. Setup is invalidated; do not enter.`;
+        }
+
+        // Update OI confirmation strip inside Advisor Banner
+        if (el.advOiPill && oiConfirmation) {
+            el.advOiPill.className = `adv-oi-pill ${oiConfirmation.badgeClass}`;
+            el.advOiPill.textContent = oiConfirmation.badge;
+            if (el.advOiDetails) {
+                el.advOiDetails.textContent = oiConfirmation.message;
+            }
+        }
+    }
+
+    // Dynamic OI Analytics & PCR Sentiment Engine Update
+    function updateOIAnalyticsUI(oiAnalytics, oiConfirmation, spotPrice, strikePrice) {
+        if (!el.valPcrNumber || !oiAnalytics) return;
+
+        // 1. PCR & Header
+        if (el.valPcrHeaderTag) {
+            el.valPcrHeaderTag.textContent = `PCR ${oiAnalytics.pcr.toFixed(2)} • ${oiAnalytics.pcrSentiment}`;
+        }
+        el.valPcrNumber.textContent = oiAnalytics.pcr.toFixed(2);
+        el.valPcrBadge.textContent = oiAnalytics.pcrSentiment;
+        el.valPcrBadge.className = `pcr-badge ${oiAnalytics.pcrBadgeClass}`;
+        el.valPcrDesc.textContent = oiAnalytics.pcrDescription;
+
+        // Visual PE vs CE distribution bar
+        const totalOI = oiAnalytics.totalCeOI + oiAnalytics.totalPeOI;
+        const peRatio = totalOI > 0 ? Math.round((oiAnalytics.totalPeOI / totalOI) * 100) : 50;
+        const ceRatio = 100 - peRatio;
+        if (el.barPeOIPct) {
+            el.barPeOIPct.style.width = `${peRatio}%`;
+            el.barPeOIPct.textContent = `PE ${peRatio}%`;
+        }
+        if (el.barCeOIPct) {
+            el.barCeOIPct.style.width = `${ceRatio}%`;
+            el.barCeOIPct.textContent = `CE ${ceRatio}%`;
+        }
+
+        // 2. Key Support Floor (Max Put OI)
+        if (el.valMaxPutStrike) {
+            el.valMaxPutStrike.textContent = `${oiAnalytics.maxPeStrike} PE`;
+            el.valMaxPutContracts.textContent = `${(oiAnalytics.maxPeOI / 1000).toFixed(0)}k contracts`;
+        }
+
+        // 3. Key Resistance Wall (Max Call OI)
+        if (el.valMaxCallStrike) {
+            el.valMaxCallStrike.textContent = `${oiAnalytics.maxCeStrike} CE`;
+            el.valMaxCallContracts.textContent = `${(oiAnalytics.maxCeOI / 1000).toFixed(0)}k contracts`;
+        }
+
+        // 4. Max Pain Pin Level
+        if (el.valMaxPainStrike) {
+            el.valMaxPainStrike.textContent = `${oiAnalytics.maxPainStrike}`;
+            const painDiff = Math.round(oiAnalytics.maxPainStrike - spotPrice);
+            const painSign = painDiff >= 0 ? '+' : '';
+            el.valMaxPainDistance.textContent = `${painSign}${painDiff} pts from spot`;
+        }
+
+        // 5. Strike Confirmation Banner inside OI Card
+        if (el.oiTradeConfirmationBanner && oiConfirmation) {
+            el.oiTradeConfirmationBanner.className = `oi-trade-confirmation-banner ${oiConfirmation.badgeClass}`;
+            if (el.oiConfirmIcon) {
+                el.oiConfirmIcon.textContent = oiConfirmation.status === 'CONFIRMED' ? '🛡️' : (oiConfirmation.status === 'CAUTION' ? '⚠️' : '⚖️');
+            }
+            if (el.oiConfirmTitle) {
+                el.oiConfirmTitle.textContent = oiConfirmation.badge;
+            }
+            if (el.oiConfirmBody) {
+                el.oiConfirmBody.textContent = oiConfirmation.message;
+            }
         }
     }
 
@@ -562,18 +671,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const isSelected = row.strike === state.strikePrice;
 
+            const maxCeBadge = row.isMaxCallOI ? ' <span class="badge-oi-res" title="Major Call Resistance Wall">RES WALL</span>' : '';
+            const maxPeBadge = row.isMaxPutOI ? ' <span class="badge-oi-sup" title="Major Put Support Floor">SUP FLOOR</span>' : '';
+            const maxPainBadge = row.isMaxPain ? ' <span class="badge-oi-pain" title="Expiry Max Pain Pin Strike">PAIN</span>' : '';
+
             tr.innerHTML = `
                 <td class="clickable-cell ${row.isITM_CE ? 'itm-ce-cell' : ''}" data-type="CE" data-strike="${row.strike}" data-price="${row.ce.price}">
                     <span class="font-mono text-neon-green">₹${row.ce.price.toFixed(2)}</span>
                 </td>
                 <td class="${row.isITM_CE ? 'itm-ce-cell' : ''} text-muted">${row.ce.delta.toFixed(2)}</td>
-                <td class="${row.isITM_CE ? 'itm-ce-cell' : ''} text-muted">${(row.ce.oi / 1000).toFixed(0)}k</td>
+                <td class="${row.isITM_CE ? 'itm-ce-cell' : ''} text-muted">${(row.ce.oi / 1000).toFixed(0)}k${maxCeBadge}</td>
 
                 <td class="strike-cell ${isSelected ? 'text-neon-cyan' : ''}">
-                    ${row.strike} ${row.isATM ? '<small>(ATM)</small>' : ''}
+                    ${row.strike} ${row.isATM ? '<small>(ATM)</small>' : ''}${maxPainBadge}
                 </td>
 
-                <td class="${row.isITM_PE ? 'itm-pe-cell' : ''} text-muted">${(row.pe.oi / 1000).toFixed(0)}k</td>
+                <td class="${row.isITM_PE ? 'itm-pe-cell' : ''} text-muted">${(row.pe.oi / 1000).toFixed(0)}k${maxPeBadge}</td>
                 <td class="${row.isITM_PE ? 'itm-pe-cell' : ''} text-muted">${row.pe.delta.toFixed(2)}</td>
                 <td class="clickable-cell ${row.isITM_PE ? 'itm-pe-cell' : ''}" data-type="PE" data-strike="${row.strike}" data-price="${row.pe.price}">
                     <span class="font-mono text-neon-red">₹${row.pe.price.toFixed(2)}</span>
@@ -697,18 +810,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Trade Plan Summary Formatter
-    function updateTradeSummary(targetSL, greeks, entryStatus) {
+    function updateTradeSummary(targetSL, greeks, entryStatus, oiConfirmation) {
         const entryText = entryStatus ? `
 OPTIMAL ENTRY TARGET: ₹${entryStatus.targetEntry.toFixed(2)} [Status: ${entryStatus.status}]
 CURRENT MARKET LTP  : ₹${entryStatus.currentLTP.toFixed(2)} (${entryStatus.diffPoints >= 0 ? '+' : ''}${entryStatus.diffPoints.toFixed(2)} pts away)
 ADVISOR NOTE        : ${entryStatus.message}
 ` : '';
 
+        const oiText = oiConfirmation ? `
+OI CONFIRMATION     : [${oiConfirmation.badge}] ${oiConfirmation.message}
+PCR METRIC          : ${oiConfirmation.pcr.toFixed(2)} | S&R Walls: Sup ₹${oiConfirmation.maxPeStrike} / Res ₹${oiConfirmation.maxCeStrike}
+` : '';
+
         const text = 
 `[ALPHAGREEKS TRADE PLAN]
 Instrument: ${state.currentIndex} ${state.strikePrice} ${state.optionType}
 Action: ${state.tradeAction} | Lots: ${state.lotsCount} (Qty: ${targetSL.totalQty})
-${entryText}--------------------------------
+${entryText}${oiText}--------------------------------
 STOP LOSS (SL): ₹${targetSL.slPrice.toFixed(2)} (-${targetSL.slPoints.toFixed(2)} pts | Max Risk: -₹${targetSL.maxRiskINR.toLocaleString('en-IN')})
 SL Index Trigger: ${targetSL.slSpotPrice.toFixed(2)}
 

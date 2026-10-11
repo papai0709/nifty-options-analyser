@@ -394,12 +394,135 @@ function calculateOptimalEntryAndStatus({
     };
 }
 
+/**
+ * Evaluates trade setup against Open Interest (OI) & Put-Call Ratio (PCR) analytics
+ */
+function evaluateOIConfirmation({ optionType, tradeAction, strikePrice, spotPrice, oiData }) {
+    if (!oiData) {
+        return {
+            status: 'NEUTRAL',
+            badge: '⚖️ OI Neutral',
+            badgeClass: 'oi-neutral',
+            message: 'Live market liquidity active.'
+        };
+    }
+
+    const isBuyer = tradeAction === 'BUY';
+    const isCall = optionType === 'CE';
+    const K = strikePrice;
+    const { pcr, maxCeStrike, maxCeOI, maxPeStrike, maxPeOI, maxPainStrike } = oiData;
+
+    let status = 'NEUTRAL'; // 'CONFIRMED', 'CAUTION', 'NEUTRAL'
+    let badge = '⚖️ OI Neutral';
+    let badgeClass = 'oi-neutral';
+    let message = '';
+
+    if (isBuyer) {
+        if (isCall) {
+            // CALL BUYER (BULLISH TRADER)
+            if (K > maxCeStrike) {
+                status = 'CAUTION';
+                badge = '⚠️ Above Call Wall (Supply Risk)';
+                badgeClass = 'oi-caution';
+                message = `Selected strike (₹${K}) is ABOVE the Major Call Resistance Wall (₹${maxCeStrike}). High risk of supply pressure and institutional seller defense!`;
+            } else if (K === maxCeStrike) {
+                status = 'CAUTION';
+                badge = '⚠️ At Major Call Wall (Resistance)';
+                badgeClass = 'oi-caution';
+                message = `Selected strike (₹${K}) is the MAXIMUM Call OI Wall (${(maxCeOI / 1000).toFixed(0)}k contracts). Strong resistance expected unless breakout volume surges.`;
+            } else if (pcr >= 1.05 && spotPrice >= maxPeStrike) {
+                status = 'CONFIRMED';
+                badge = '🛡️ Bullish OI Confirmation';
+                badgeClass = 'oi-confirmed';
+                message = `Bullish Setup Backed by OI: PCR is ${pcr.toFixed(2)} with heavy Put Writing Support Floor at ₹${maxPeStrike}. Solid underlying cushion for Call longs!`;
+            } else if (pcr < 0.80) {
+                status = 'CAUTION';
+                badge = '⚠️ Bearish PCR Headwind';
+                badgeClass = 'oi-caution';
+                message = `PCR is low (${pcr.toFixed(2)}), indicating dominant Call writers overhead. Upside moves may face prompt profit-booking.`;
+            } else {
+                status = 'NEUTRAL';
+                badge = '✓ OI In Safe Range';
+                badgeClass = 'oi-neutral';
+                message = `Strike is in balanced trading range (Support Floor: ₹${maxPeStrike} | Resistance Wall: ₹${maxCeStrike} | Max Pain: ₹${maxPainStrike}).`;
+            }
+        } else {
+            // PUT BUYER (BEARISH TRADER)
+            if (K < maxPeStrike) {
+                status = 'CAUTION';
+                badge = '⚠️ Below Put Floor (Reversal Risk)';
+                badgeClass = 'oi-caution';
+                message = `Selected strike (₹${K}) is BELOW the Major Put Support Floor (₹${maxPeStrike}). Heavy Put writing acts as a strong cushion against further drops!`;
+            } else if (K === maxPeStrike) {
+                status = 'CAUTION';
+                badge = '⚠️ At Major Put Floor (Support)';
+                badgeClass = 'oi-caution';
+                message = `Selected strike (₹${K}) is the MAXIMUM Put OI Floor (${(maxPeOI / 1000).toFixed(0)}k contracts). Option sellers actively defending this zone.`;
+            } else if (pcr <= 0.85 && spotPrice <= maxCeStrike) {
+                status = 'CONFIRMED';
+                badge = '⚡ Bearish OI Confirmation';
+                badgeClass = 'oi-confirmed';
+                message = `Bearish Setup Backed by OI: PCR is ${pcr.toFixed(2)} with heavy Call Writing Resistance Wall at ₹${maxCeStrike}. Strong ceiling capping index rebounds!`;
+            } else if (pcr > 1.25) {
+                status = 'CAUTION';
+                badge = '⚠️ Bullish PCR Headwind';
+                badgeClass = 'oi-caution';
+                message = `PCR is elevated (${pcr.toFixed(2)}), indicating heavy institutional Put writing. Bears may struggle to break support.`;
+            } else {
+                status = 'NEUTRAL';
+                badge = '✓ OI In Safe Range';
+                badgeClass = 'oi-neutral';
+                message = `Strike is in balanced trading range (Support Floor: ₹${maxPeStrike} | Resistance Wall: ₹${maxCeStrike} | Max Pain: ₹${maxPainStrike}).`;
+            }
+        }
+    } else {
+        // OPTION SELLER (WRITER)
+        if (isCall) {
+            if (K >= maxCeStrike) {
+                status = 'CONFIRMED';
+                badge = '🛡️ High-Prob Call Writing Zone';
+                badgeClass = 'oi-confirmed';
+                message = `High Probability Short: Selling at/above the Key Call Wall (₹${maxCeStrike}) where institutional writers are concentrated!`;
+            } else {
+                status = 'NEUTRAL';
+                badge = '✓ Call Writing Active';
+                badgeClass = 'oi-neutral';
+                message = `Call writing active. Major overhead resistance positioned at ₹${maxCeStrike}.`;
+            }
+        } else {
+            if (K <= maxPeStrike) {
+                status = 'CONFIRMED';
+                badge = '🛡️ High-Prob Put Writing Zone';
+                badgeClass = 'oi-confirmed';
+                message = `High Probability Short: Selling at/below the Key Put Floor (₹${maxPeStrike}) where institutional buyers provide support!`;
+            } else {
+                status = 'NEUTRAL';
+                badge = '✓ Put Writing Active';
+                badgeClass = 'oi-neutral';
+                message = `Put writing active. Major underlying support floor positioned at ₹${maxPeStrike}.`;
+            }
+        }
+    }
+
+    return {
+        status,
+        badge,
+        badgeClass,
+        message,
+        pcr,
+        maxCeStrike,
+        maxPeStrike,
+        maxPainStrike
+    };
+}
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         calculateBlackScholesGreeks,
         projectOptionPrice,
         calculateTargetAndSL,
         calculateOptimalEntryAndStatus,
+        evaluateOIConfirmation,
         normalCDF,
         normalPDF
     };

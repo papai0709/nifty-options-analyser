@@ -946,6 +946,293 @@ body {
     border-radius: var(--radius-sm);
 }
 
+/* =========================================================
+   OPEN INTEREST (OI) & PCR SENTIMENT ENGINE
+   ========================================================= */
+
+.advisor-oi-tag-strip {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+    font-size: 0.78rem;
+}
+
+.adv-oi-pill {
+    padding: 0.15rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+
+.adv-oi-pill.oi-confirmed {
+    background: rgba(0, 230, 118, 0.15);
+    border: 1px solid rgba(0, 230, 118, 0.4);
+    color: var(--neon-green);
+}
+
+.adv-oi-pill.oi-caution {
+    background: rgba(255, 184, 0, 0.15);
+    border: 1px solid rgba(255, 184, 0, 0.4);
+    color: var(--neon-gold);
+}
+
+.adv-oi-pill.oi-neutral {
+    background: rgba(0, 240, 255, 0.12);
+    border: 1px solid rgba(0, 240, 255, 0.3);
+    color: var(--neon-cyan);
+}
+
+.adv-oi-details {
+    color: var(--text-secondary);
+    font-size: 0.76rem;
+}
+
+/* OI Analytics Card */
+.oi-analytics-card {
+    background: linear-gradient(145deg, rgba(16, 24, 40, 0.7), rgba(9, 14, 26, 0.9));
+    border: 1px solid rgba(0, 240, 255, 0.15);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.oi-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+}
+
+@media (max-width: 900px) {
+    .oi-metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.oi-tile {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 0.75rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    transition: var(--transition);
+}
+
+.oi-tile:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+}
+
+.oi-tile.support-tile {
+    border-left: 3px solid var(--neon-green);
+}
+
+.oi-tile.resistance-tile {
+    border-left: 3px solid var(--neon-red);
+}
+
+.oi-tile.pain-tile {
+    border-left: 3px solid var(--neon-gold);
+}
+
+.oi-tile-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.oi-tile-lbl {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.oi-tile-val {
+    font-size: 1.15rem;
+    font-weight: 800;
+}
+
+.oi-contracts-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+}
+
+.oi-tile-sub {
+    font-size: 0.66rem;
+    color: var(--text-muted);
+    line-height: 1.25;
+    margin-top: 0.15rem;
+}
+
+.pcr-badge {
+    font-size: 0.62rem;
+    font-weight: 800;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    letter-spacing: 0.03em;
+}
+
+.pcr-bullish {
+    background: rgba(0, 230, 118, 0.18);
+    color: var(--neon-green);
+    border: 1px solid rgba(0, 230, 118, 0.4);
+}
+
+.pcr-bearish {
+    background: rgba(255, 51, 102, 0.18);
+    color: var(--neon-red);
+    border: 1px solid rgba(255, 51, 102, 0.4);
+}
+
+.pcr-neutral {
+    background: rgba(0, 240, 255, 0.15);
+    color: var(--neon-cyan);
+    border: 1px solid rgba(0, 240, 255, 0.3);
+}
+
+.oi-sub-badge {
+    font-size: 0.58rem;
+    font-weight: 800;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+}
+
+.badge-green {
+    background: rgba(0, 230, 118, 0.15);
+    color: var(--neon-green);
+}
+
+.badge-red {
+    background: rgba(255, 51, 102, 0.15);
+    color: var(--neon-red);
+}
+
+.badge-gold {
+    background: rgba(255, 184, 0, 0.15);
+    color: var(--neon-gold);
+}
+
+/* PCR Visual Ratio Bar */
+.pcr-bar-wrap {
+    width: 100%;
+    margin: 0.2rem 0;
+}
+
+.pcr-bar-track {
+    height: 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    font-size: 0.58rem;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    line-height: 14px;
+    text-align: center;
+}
+
+.pcr-bar-pe {
+    background: linear-gradient(90deg, rgba(0, 230, 118, 0.8), rgba(0, 200, 83, 0.9));
+    color: #022010;
+    transition: width 0.3s ease;
+}
+
+.pcr-bar-ce {
+    background: linear-gradient(90deg, rgba(255, 51, 102, 0.8), rgba(213, 0, 0, 0.9));
+    color: #FFFFFF;
+    transition: width 0.3s ease;
+}
+
+/* Trade Confirmation Banner inside OI Card */
+.oi-trade-confirmation-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-md);
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-subtle);
+}
+
+.oi-trade-confirmation-banner.oi-confirmed {
+    background: linear-gradient(90deg, rgba(0, 230, 118, 0.08), rgba(0, 0, 0, 0.3));
+    border-color: rgba(0, 230, 118, 0.35);
+}
+
+.oi-trade-confirmation-banner.oi-caution {
+    background: linear-gradient(90deg, rgba(255, 184, 0, 0.08), rgba(0, 0, 0, 0.3));
+    border-color: rgba(255, 184, 0, 0.35);
+}
+
+.oi-trade-confirmation-banner.oi-neutral {
+    background: linear-gradient(90deg, rgba(0, 240, 255, 0.06), rgba(0, 0, 0, 0.3));
+    border-color: rgba(0, 240, 255, 0.25);
+}
+
+.oi-confirm-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.oi-confirm-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.oi-confirm-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.oi-confirm-body {
+    font-size: 0.76rem;
+    color: var(--text-secondary);
+    line-height: 1.35;
+}
+
+/* Option Chain Badges */
+.badge-oi-res {
+    background: rgba(255, 51, 102, 0.2);
+    color: var(--neon-red);
+    border: 1px solid rgba(255, 51, 102, 0.4);
+    font-size: 0.58rem;
+    font-weight: 800;
+    padding: 0.05rem 0.3rem;
+    border-radius: 3px;
+    margin-left: 0.3rem;
+}
+
+.badge-oi-sup {
+    background: rgba(0, 230, 118, 0.2);
+    color: var(--neon-green);
+    border: 1px solid rgba(0, 230, 118, 0.4);
+    font-size: 0.58rem;
+    font-weight: 800;
+    padding: 0.05rem 0.3rem;
+    border-radius: 3px;
+    margin-right: 0.3rem;
+}
+
+.badge-oi-pain {
+    background: rgba(255, 184, 0, 0.2);
+    color: var(--neon-gold);
+    border: 1px solid rgba(255, 184, 0, 0.4);
+    font-size: 0.58rem;
+    font-weight: 800;
+    padding: 0.05rem 0.3rem;
+    border-radius: 3px;
+}
+
 /* Levels Matrix Grid */
 .levels-grid {
     display: grid;

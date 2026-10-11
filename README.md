@@ -68,9 +68,23 @@
 
 ---
 
-### 5. ⚡ Interactive Option Chain & Simulator
-- **Live Option Chain**: Real-time 13+ strike matrix around ATM with Call & Put LTP, Delta, Gamma, Theta, and Open Interest (OI).
-- **1-Click Strike Loading**: Click any strike in the chain to immediately load it into the Greeks & RR calculator.
+### 5. 📊 Open Interest (OI) & PCR Sentiment Engine
+- **Live Put-Call Ratio (PCR)**: Computes index-wide Put-Call Ratio with real-time sentiment classifications:
+  - `PCR > 1.30`: Extremely Bullish / Overbought warning
+  - `PCR 1.05 - 1.30`: Bullish (Put Writers in control, Buy-on-Dip bias)
+  - `PCR 0.85 - 1.05`: Balanced Consolidation zone
+  - `PCR 0.65 - 0.85`: Bearish (Call Writers dominant)
+  - `PCR < 0.65`: Extremely Bearish / Oversold reversal watch
+- **Key Support Floor (Max Put OI)**: Automatically detects and highlights the strike with maximum Put open interest and contract volume.
+- **Key Resistance Wall (Max Call OI)**: Identifies the major overhead supply wall where institutional Call writing is concentrated.
+- **Expiry Max Pain Pin Strike**: Calculates theoretical options seller minimum-loss pin level.
+- **Strike OI Confirmation in Entry Advisor**: Real-time evaluation of whether your selected strike is backed by Put writing support or encountering major Call resistance.
+
+---
+
+### 6. ⚡ Interactive Option Chain & Simulator
+- **Visual S&R Badges**: Option chain directly flags strikes with `[RES WALL]`, `[SUP FLOOR]`, and `[MAX PAIN]`.
+- **1-Click Strike Loading**: Click any strike in the chain to immediately load it into the Greeks, RR, and OI calculator.
 - **What-If Scenario Simulator**: Test underlying moves (-300 to +300 pts) and holding periods (Intraday to 5 days) with HTML5 Canvas payoff visualization.
 
 ---

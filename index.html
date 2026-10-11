@@ -312,6 +312,10 @@
                 </div>
                 <div class="advisor-message-box" id="advisorMessageBox">
                     <p id="advisorMessageText">⏳ <strong>WAIT FOR ENTRY:</strong> Current LTP is higher than the optimal limit entry zone. Wait for a pullback into the support zone to protect capital and maximize Risk-Reward ratio.</p>
+                    <div class="advisor-oi-tag-strip" id="advOiTagStrip">
+                        <span class="adv-oi-pill oi-confirmed" id="advOiPill">🛡️ Bullish OI Confirmation</span>
+                        <span class="adv-oi-details" id="advOiDetails">Selected strike backed by heavy Put writing floor.</span>
+                    </div>
                 </div>
             </div>
 
@@ -351,6 +355,86 @@
                     <div class="meter-bar-track">
                         <div class="meter-bar-risk" id="meterRiskBar" style="width: 33.3%;"></div>
                         <div class="meter-bar-reward" id="meterRewardBar" style="width: 66.7%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OPEN INTEREST (OI) & PCR SENTIMENT ENGINE -->
+            <div class="card oi-analytics-card">
+                <div class="card-header">
+                    <div class="header-title-wrap">
+                        <span class="pulse-icon">📊</span>
+                        <h2>Open Interest (OI) & PCR Market Sentiment</h2>
+                    </div>
+                    <span class="tag-status font-mono" id="valPcrHeaderTag">PCR 1.18 • Bullish</span>
+                </div>
+
+                <div class="oi-metrics-grid">
+                    <!-- Tile 1: Index PCR -->
+                    <div class="oi-tile">
+                        <div class="oi-tile-top">
+                            <span class="oi-tile-lbl">Put-Call Ratio (PCR)</span>
+                            <span class="pcr-badge pcr-bullish" id="valPcrBadge">BULLISH</span>
+                        </div>
+                        <div class="oi-tile-val font-mono" id="valPcrNumber">1.18</div>
+                        <div class="pcr-bar-wrap">
+                            <div class="pcr-bar-track">
+                                <div class="pcr-bar-pe" id="barPeOIPct" style="width: 54%;" title="Put OI">PE 54%</div>
+                                <div class="pcr-bar-ce" id="barCeOIPct" style="width: 46%;" title="Call OI">CE 46%</div>
+                            </div>
+                        </div>
+                        <p class="oi-tile-sub" id="valPcrDesc">Put Writers in Control • Bullish Bias</p>
+                    </div>
+
+                    <!-- Tile 2: Major Support Floor -->
+                    <div class="oi-tile support-tile">
+                        <div class="oi-tile-top">
+                            <span class="oi-tile-lbl">Key Support Floor</span>
+                            <span class="oi-sub-badge badge-green">MAX PUT OI</span>
+                        </div>
+                        <div class="oi-tile-val font-mono text-neon-green" id="valMaxPutStrike">22,400 PE</div>
+                        <div class="oi-contracts-row">
+                            <span class="font-mono text-neon-green" id="valMaxPutContracts">145k</span>
+                            <span class="text-muted">Open Contracts</span>
+                        </div>
+                        <p class="oi-tile-sub text-neon-green">Heavy Put Writing • Primary Floor</p>
+                    </div>
+
+                    <!-- Tile 3: Major Resistance Wall -->
+                    <div class="oi-tile resistance-tile">
+                        <div class="oi-tile-top">
+                            <span class="oi-tile-lbl">Key Resistance Wall</span>
+                            <span class="oi-sub-badge badge-red">MAX CALL OI</span>
+                        </div>
+                        <div class="oi-tile-val font-mono text-neon-red" id="valMaxCallStrike">22,700 CE</div>
+                        <div class="oi-contracts-row">
+                            <span class="font-mono text-neon-red" id="valMaxCallContracts">168k</span>
+                            <span class="text-muted">Open Contracts</span>
+                        </div>
+                        <p class="oi-tile-sub text-neon-red">Heavy Call Writing • Overhead Supply</p>
+                    </div>
+
+                    <!-- Tile 4: Max Pain Pin Level -->
+                    <div class="oi-tile pain-tile">
+                        <div class="oi-tile-top">
+                            <span class="oi-tile-lbl">Expiry Max Pain</span>
+                            <span class="oi-sub-badge badge-gold">PIN LEVEL</span>
+                        </div>
+                        <div class="oi-tile-val font-mono text-neon-gold" id="valMaxPainStrike">22,500</div>
+                        <div class="oi-contracts-row">
+                            <span class="font-mono text-neon-gold" id="valMaxPainDistance">ATM Zone</span>
+                            <span class="text-muted">Expiry Gravity</span>
+                        </div>
+                        <p class="oi-tile-sub">Options Seller Minimum Payout Target</p>
+                    </div>
+                </div>
+
+                <!-- Strike Specific OI Confirmation Alert -->
+                <div class="oi-trade-confirmation-banner oi-confirmed" id="oiTradeConfirmationBanner">
+                    <span class="oi-confirm-icon" id="oiConfirmIcon">🛡️</span>
+                    <div class="oi-confirm-content">
+                        <div class="oi-confirm-title" id="oiConfirmTitle">Bullish Setup Supported by Institutional OI</div>
+                        <p class="oi-confirm-body" id="oiConfirmBody">Selected strike is within safe accumulation territory with strong Put Writing support.</p>
                     </div>
                 </div>
             </div>
