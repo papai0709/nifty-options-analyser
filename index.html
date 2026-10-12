@@ -50,6 +50,15 @@
                 <span class="vix-label">INDIA VIX</span>
                 <span class="vix-val" id="tickVix">13.72</span>
             </div>
+            <div class="vwap-pill" id="tickerVwapPill" title="Intraday Volume-Weighted Average Price">
+                <span class="vwap-label">VWAP</span>
+                <span class="vwap-val font-mono" id="tickVwapVal">22,495.10</span>
+                <span class="vwap-diff pos" id="tickVwapDiff">+0.11%</span>
+            </div>
+            <div class="session-pill session-prime" id="tickerSessionPill" title="Indian Market Session Timing Window">
+                <span class="session-icon">⏱️</span>
+                <span class="session-label font-mono" id="tickSessionLabel">Active Session</span>
+            </div>
         </div>
 
         <!-- Live Feed Status & Global Controls -->
@@ -317,6 +326,42 @@
                         <span class="adv-oi-details" id="advOiDetails">Selected strike backed by heavy Put writing floor.</span>
                     </div>
                 </div>
+
+                <!-- Signal Precision & Confluence Gauge -->
+                <div class="confluence-gauge-wrap" id="confluenceGaugeWrap">
+                    <div class="confluence-main">
+                        <div class="confluence-score-box">
+                            <span class="confluence-score-val font-mono text-neon-green" id="valConfluenceScore">85</span>
+                            <span class="confluence-score-denom">/100</span>
+                        </div>
+                        <div class="confluence-badge-group">
+                            <div class="confluence-pill confluence-high" id="badgeConfluenceConviction">🟢 HIGH CONVICTION</div>
+                            <span class="confluence-summary" id="textConfluenceSummary">Prime Setup: Strong VWAP trend, OI accumulation & delta sweet-spot</span>
+                        </div>
+                    </div>
+                    <div class="confluence-factors-grid" id="confluenceFactorsGrid">
+                        <div class="conf-factor-pill" id="confFactorVwap" title="Spot vs VWAP alignment">
+                            <span class="conf-f-label">VWAP Trend</span>
+                            <span class="conf-f-val font-mono" id="valConfVwap">Bullish +0.12%</span>
+                        </div>
+                        <div class="conf-factor-pill" id="confFactorOi" title="Derivatives Open Interest & PCR Flow">
+                            <span class="conf-f-label">OI Flow</span>
+                            <span class="conf-f-val font-mono" id="valConfOi">Confirmed 🛡️</span>
+                        </div>
+                        <div class="conf-factor-pill" id="confFactorBuildup" title="Selected Strike Buildup Classification">
+                            <span class="conf-f-label">Strike Buildup</span>
+                            <span class="conf-f-val font-mono" id="valConfBuildup">Long Buildup [LB]</span>
+                        </div>
+                        <div class="conf-factor-pill" id="confFactorVix" title="India VIX & Volatility Regime">
+                            <span class="conf-f-label">VIX Regime</span>
+                            <span class="conf-f-val font-mono" id="valConfVix">IV Safe (13.7)</span>
+                        </div>
+                        <div class="conf-factor-pill" id="confFactorGreeks" title="Delta Efficiency & Theta Drag">
+                            <span class="conf-f-label">Greeks Quality</span>
+                            <span class="conf-f-val font-mono" id="valConfGreeks">Delta 0.52 (Optimal)</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Active Trade Banner Card -->
@@ -514,6 +559,31 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Dynamic Trailing SL & Trade Management Schedule -->
+                <div class="trailing-schedule-strip" id="trailingScheduleStrip">
+                    <div class="trailing-milestone">
+                        <span class="trail-badge">STAGE 1</span>
+                        <div class="trail-details">
+                            <strong id="trailT1Action">At Target 1 (1:1.5 RR): Trail SL to Breakeven</strong>
+                            <span class="text-muted" id="trailT1Text">Locks risk-free position at entry price</span>
+                        </div>
+                    </div>
+                    <div class="trailing-milestone">
+                        <span class="trail-badge">STAGE 2</span>
+                        <div class="trail-details">
+                            <strong id="trailT2Action">At Target 2 (1:2.0 RR): Book 50-70% &amp; Trail to T1</strong>
+                            <span class="text-muted" id="trailT2Text">Secure primary profit; let runners ride to T3</span>
+                        </div>
+                    </div>
+                    <div class="trailing-milestone theta-cutoff">
+                        <span class="trail-badge badge-warning">THETA TIME-STOP</span>
+                        <div class="trail-details">
+                            <strong id="trailThetaWarning">Max holding window: 45 mins</strong>
+                            <span class="text-muted" id="trailThetaSub">Reassess if flat to prevent excessive decay erosion</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Option Greeks Display Matrix -->
@@ -636,9 +706,9 @@
                             <tr class="sub-head">
                                 <th>LTP</th>
                                 <th>Delta</th>
-                                <th>OI</th>
+                                <th>OI &amp; Flow</th>
                                 <th>Strike</th>
-                                <th>OI</th>
+                                <th>OI &amp; Flow</th>
                                 <th>Delta</th>
                                 <th>LTP</th>
                             </tr>
@@ -717,6 +787,22 @@
                     <div class="check-item">
                         <input type="checkbox" id="chk5">
                         <label for="chk5">Underlying support/resistance matches Stop Loss level</label>
+                    </div>
+                    <div class="check-item">
+                        <input type="checkbox" id="chk6" checked>
+                        <label for="chk6">Confluence Score &ge; 75 (Institutional multi-factor alignment)</label>
+                    </div>
+                    <div class="check-item">
+                        <input type="checkbox" id="chk7" checked>
+                        <label for="chk7">Spot aligned with Intraday VWAP (Bullish above / Bearish below)</label>
+                    </div>
+                    <div class="check-item">
+                        <input type="checkbox" id="chk8" checked>
+                        <label for="chk8">Strike backed by Long Buildup or Short Covering (No unwinding)</label>
+                    </div>
+                    <div class="check-item">
+                        <input type="checkbox" id="chk9" checked>
+                        <label for="chk9">Timing avoids Midday 11:30-13:30 European chop trap</label>
                     </div>
 
                     <div class="copy-order-card">

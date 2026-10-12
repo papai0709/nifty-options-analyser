@@ -99,6 +99,30 @@ document.addEventListener('DOMContentLoaded', () => {
         advOiPill: document.getElementById('advOiPill'),
         advOiDetails: document.getElementById('advOiDetails'),
 
+        // Signal Precision & Confluence Gauge
+        valConfluenceScore: document.getElementById('valConfluenceScore'),
+        badgeConfluenceConviction: document.getElementById('badgeConfluenceConviction'),
+        textConfluenceSummary: document.getElementById('textConfluenceSummary'),
+        valConfVwap: document.getElementById('valConfVwap'),
+        valConfOi: document.getElementById('valConfOi'),
+        valConfBuildup: document.getElementById('valConfBuildup'),
+        valConfVix: document.getElementById('valConfVix'),
+        valConfGreeks: document.getElementById('valConfGreeks'),
+
+        // VWAP & Session Ticker Pills
+        tickVwapVal: document.getElementById('tickVwapVal'),
+        tickVwapDiff: document.getElementById('tickVwapDiff'),
+        tickSessionLabel: document.getElementById('tickSessionLabel'),
+        tickerSessionPill: document.getElementById('tickerSessionPill'),
+
+        // Trailing SL Milestones
+        trailT1Action: document.getElementById('trailT1Action'),
+        trailT1Text: document.getElementById('trailT1Text'),
+        trailT2Action: document.getElementById('trailT2Action'),
+        trailT2Text: document.getElementById('trailT2Text'),
+        trailThetaWarning: document.getElementById('trailThetaWarning'),
+        trailThetaSub: document.getElementById('trailThetaSub'),
+
         // OI Analytics Card Elements
         valPcrHeaderTag: document.getElementById('valPcrHeaderTag'),
         valPcrBadge: document.getElementById('valPcrBadge'),
@@ -279,6 +303,26 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update VIX
         el.tickVix.textContent = vix.toFixed(2);
 
+        // Update Live VWAP & Session Window
+        const activeIdxObj = indices[state.currentIndex];
+        if (el.tickVwapVal && activeIdxObj && activeIdxObj.vwap) {
+            el.tickVwapVal.textContent = activeIdxObj.vwap.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+            const vDiff = Math.round((activeIdxObj.spot - activeIdxObj.vwap) * 100) / 100;
+            const vPct = Math.round((vDiff / activeIdxObj.vwap) * 10000) / 100;
+            const isPos = vDiff >= 0;
+            el.tickVwapDiff.textContent = `${isPos ? '+' : ''}${vPct.toFixed(2)}%`;
+            el.tickVwapDiff.className = `vwap-diff ${isPos ? 'pos' : 'neg'}`;
+        }
+        if (el.tickSessionLabel && typeof evaluateSessionTiming === 'function') {
+            const sess = evaluateSessionTiming();
+            const phaseBrief = sess.phase === 'POST_MARKET' ? 'Post-Market' : (sess.phase === 'PRE_MARKET' ? 'Pre-Market' : (sess.phase === 'MIDDAY_CHOP' ? 'Midday Lull' : (sess.phase === 'POWER_HOUR_0DTE' ? 'Power Hour' : 'Active')));
+            el.tickSessionLabel.textContent = `${sess.istTimeString} • ${phaseBrief}`;
+            if (el.tickerSessionPill) {
+                el.tickerSessionPill.className = `session-pill ${sess.phaseBadge}`;
+                el.tickerSessionPill.title = `${sess.phaseLabel}: ${sess.guidance}`;
+            }
+        }
+
         // If AutoSyncSpot is active, sync spot with current index
         if (state.autoSyncSpot) {
             const currentObj = indices[state.currentIndex];
@@ -335,7 +379,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Fair Value determination
         const fairPrice = Math.round(greeks.price * 100) / 100;
-        el.badgeFairVal.textContent = `Fair: ₹${fairPrice.toFixed(2)}`;
 
         // Current Market Premium (LTP)
         const currentLTP = (state.premiumPaid !== null && state.premiumPaid > 0)
@@ -343,7 +386,24 @@ document.addEventListener('DOMContentLoaded', () => {
             : fairPrice;
 
         if (state.premiumPaid === null) {
-            el.inputPremium.value = fairPrice.toFixed(2);
+            if (document.activeElement !== el.inputPremium) {
+                el.inputPremium.value = fairPrice.toFixed(2);
+            }
+            el.badgeFairVal.textContent = `Fair: ₹${fairPrice.toFixed(2)}`;
+            el.badgeFairVal.classList.remove('clickable');
+            el.badgeFairVal.title = "Calculated theoretical Black-Scholes fair value based on current IV.";
+        } else {
+            const diff = Math.abs(currentLTP - fairPrice);
+            if (diff > 0.3) {
+                const solvedIV = calculateImpliedVolatility(state.optionType, S, K, T, r, currentLTP);
+                el.badgeFairVal.innerHTML = `Market IV: <b>${solvedIV}%</b> <span class="sync-action">⚡ Sync</span>`;
+                el.badgeFairVal.classList.add('clickable');
+                el.badgeFairVal.title = `Traded LTP ₹${currentLTP.toFixed(2)} implies ${solvedIV}% IV (theoretical fair is ₹${fairPrice.toFixed(2)} at ${state.ivPercent}% IV). Click to calibrate model IV & Greeks to Kite!`;
+            } else {
+                el.badgeFairVal.textContent = `Fair: ₹${fairPrice.toFixed(2)}`;
+                el.badgeFairVal.classList.remove('clickable');
+                el.badgeFairVal.title = `Model Fair value matches traded LTP (₹${fairPrice.toFixed(2)}).`;
+            }
         }
 
         // 2. Evaluate Optimal Entry Price & Wait / Triggered Status
@@ -413,18 +473,56 @@ document.addEventListener('DOMContentLoaded', () => {
             oiData: oiAnalytics
         });
 
-        // 6. Update DOM components
-        updateEntryAdvisorUI(finalEntryStatus, greeks, S, oiConfirmation);
+        // 6. Multi-Factor Confluence Scoring & Signal Precision Engine
+        const selectedStrikeRow = chainData.strikes.find(s => s.strike === K) || chainData.strikes[0];
+        const selectedBuildup = (state.optionType === 'CE' ? selectedStrikeRow?.ce?.buildup : selectedStrikeRow?.pe?.buildup)
+            || { label: 'Long Buildup', code: 'LB', badgeClass: 'buildup-lb', desc: 'Active accumulation' };
+
+        const confluence = (typeof calculateConfluenceScore === 'function')
+            ? calculateConfluenceScore({
+                optionType: state.optionType,
+                tradeAction: state.tradeAction,
+                spotPrice: S,
+                vwap: oiAnalytics.vwap || S,
+                greeks: greeks,
+                oiConfirmation: oiConfirmation,
+                pcrTrend: oiAnalytics.pcrTrend || 'STABLE',
+                vix: window.marketFeed.vix,
+                vixChange: window.marketFeed.vixChange || 0,
+                entryStatus: finalEntryStatus,
+                riskRewardRatio: state.riskRewardRatio,
+                dteDays: state.dteDays
+            })
+            : null;
+
+        // 7. Dynamic Trailing SL & Trade Management Schedule
+        const tradeMgmt = (typeof calculateTradeManagementPlan === 'function')
+            ? calculateTradeManagementPlan({
+                entryPremium: activeEntryLevel,
+                slPrice: targetSL.slPrice,
+                targetSL: targetSL,
+                greeks: greeks,
+                lotSize: state.lotSize,
+                lotsCount: state.lotsCount
+            })
+            : null;
+
+        const sessionInfo = (typeof evaluateSessionTiming === 'function')
+            ? evaluateSessionTiming()
+            : null;
+
+        // 8. Update DOM components
+        updateEntryAdvisorUI(finalEntryStatus, greeks, S, oiConfirmation, confluence, selectedBuildup);
         updateOIAnalyticsUI(oiAnalytics, oiConfirmation, S, K);
         updateVerdictUI(greeks, targetSL, S, K, activeEntryLevel, currentLTP);
-        updateLevelsUI(targetSL, finalEntryStatus, greeks, S);
+        updateLevelsUI(targetSL, finalEntryStatus, greeks, S, tradeMgmt);
         updateGreeksUI(greeks, currentLTP);
         updateSimulatorUI(greeks, activeEntryLevel, S);
-        updateTradeSummary(targetSL, greeks, finalEntryStatus, oiConfirmation);
+        updateTradeSummary(targetSL, greeks, finalEntryStatus, oiConfirmation, confluence, tradeMgmt, sessionInfo);
     }
 
     // Dynamic Entry Advisor Banner UI Update
-    function updateEntryAdvisorUI(entryStatus, greeks, S, oiConfirmation) {
+    function updateEntryAdvisorUI(entryStatus, greeks, S, oiConfirmation, confluence, selectedBuildup) {
         if (!el.entryAdvisorCard) return;
 
         el.entryAdvisorCard.className = `card entry-advisor-card ${entryStatus.statusClass}`;
@@ -463,6 +561,38 @@ document.addEventListener('DOMContentLoaded', () => {
             el.advOiPill.textContent = oiConfirmation.badge;
             if (el.advOiDetails) {
                 el.advOiDetails.textContent = oiConfirmation.message;
+            }
+        }
+
+        // Update Confluence Gauge & Factor Breakdown
+        if (confluence && el.valConfluenceScore) {
+            el.valConfluenceScore.textContent = confluence.totalScore;
+            el.valConfluenceScore.className = `confluence-score-val font-mono ${confluence.totalScore >= 80 ? 'text-neon-green' : (confluence.totalScore >= 60 ? 'text-neon-gold' : 'text-neon-red')}`;
+
+            if (el.badgeConfluenceConviction) {
+                el.badgeConfluenceConviction.textContent = confluence.convictionBadge;
+                el.badgeConfluenceConviction.className = `confluence-pill ${confluence.badgeClass}`;
+            }
+
+            if (el.textConfluenceSummary) {
+                el.textConfluenceSummary.textContent = confluence.summaryAction;
+            }
+
+            if (el.valConfVwap) {
+                el.valConfVwap.textContent = confluence.pillars.vwap.reason;
+            }
+            if (el.valConfOi) {
+                el.valConfOi.textContent = confluence.pillars.oi.reason;
+            }
+            if (el.valConfBuildup && selectedBuildup) {
+                el.valConfBuildup.textContent = `${selectedBuildup.label} [${selectedBuildup.code}]`;
+                el.valConfBuildup.title = selectedBuildup.desc;
+            }
+            if (el.valConfVix) {
+                el.valConfVix.textContent = confluence.pillars.vix.reason;
+            }
+            if (el.valConfGreeks) {
+                el.valConfGreeks.textContent = confluence.pillars.greeks.reason;
             }
         }
     }
@@ -560,7 +690,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Levels UI Update (Entry, SL & Targets)
-    function updateLevelsUI(targetSL, entryStatus, greeks, S) {
+    function updateLevelsUI(targetSL, entryStatus, greeks, S, tradeMgmt) {
         // Optimal Entry Level Card
         if (el.valEntryPrice) {
             el.valEntryPrice.textContent = `₹${entryStatus.targetEntry.toFixed(2)}`;
@@ -578,7 +708,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Index spot level corresponding to entry
             const isCall = state.optionType === 'CE';
             const isBuyer = state.tradeAction === 'BUY';
-            const spotRetestDiff = entryStatus.diffPoints / (Math.abs(greeks.delta) || 0.5);
+            const safeDelta = Math.max(0.15, Math.abs(greeks.delta) || 0.5);
+            const spotRetestDiff = entryStatus.diffPoints / safeDelta;
             const spotRetest = (isCall && isBuyer) ? S - spotRetestDiff : S + spotRetestDiff;
             el.valEntrySpotTrigger.textContent = spotRetest.toFixed(2);
         }
@@ -608,6 +739,16 @@ document.addEventListener('DOMContentLoaded', () => {
         el.valT3Inr.textContent = `(+₹${targetSL.t3.profitINR.toLocaleString('en-IN')})`;
         const spot3Trigger = state.spotPrice + (state.optionType === 'CE' ? targetSL.targetUnderlyingPts * 1.5 : -targetSL.targetUnderlyingPts * 1.5);
         el.valT3SpotTrigger.textContent = spot3Trigger.toFixed(2);
+
+        // Dynamic Trailing SL Schedule & Theta Cutoff Update
+        if (tradeMgmt) {
+            if (el.trailT1Action) el.trailT1Action.textContent = tradeMgmt.trailAtT1.action;
+            if (el.trailT1Text) el.trailT1Text.textContent = tradeMgmt.trailAtT1.statusText;
+            if (el.trailT2Action) el.trailT2Action.textContent = tradeMgmt.trailAtT2.action;
+            if (el.trailT2Text) el.trailT2Text.textContent = tradeMgmt.trailAtT2.statusText;
+            if (el.trailThetaWarning) el.trailThetaWarning.textContent = tradeMgmt.thetaCutoff.warning;
+            if (el.trailThetaSub) el.trailThetaSub.textContent = `Decay rate: -₹${tradeMgmt.thetaCutoff.thetaHourlyINR}/hr (Lot: ${state.lotSize * state.lotsCount} Qty)`;
+        }
     }
 
     // Greeks UI Update
@@ -675,18 +816,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const maxPeBadge = row.isMaxPutOI ? ' <span class="badge-oi-sup" title="Major Put Support Floor">SUP FLOOR</span>' : '';
             const maxPainBadge = row.isMaxPain ? ' <span class="badge-oi-pain" title="Expiry Max Pain Pin Strike">PAIN</span>' : '';
 
+            const ceBuildup = row.ce.buildup ? `<span class="buildup-badge ${row.ce.buildup.badgeClass}" title="${row.ce.buildup.label}: ${row.ce.buildup.desc}">[${row.ce.buildup.code}]</span>` : '';
+            const peBuildup = row.pe.buildup ? `<span class="buildup-badge ${row.pe.buildup.badgeClass}" title="${row.pe.buildup.label}: ${row.pe.buildup.desc}">[${row.pe.buildup.code}]</span>` : '';
+
             tr.innerHTML = `
                 <td class="clickable-cell ${row.isITM_CE ? 'itm-ce-cell' : ''}" data-type="CE" data-strike="${row.strike}" data-price="${row.ce.price}">
                     <span class="font-mono text-neon-green">₹${row.ce.price.toFixed(2)}</span>
                 </td>
                 <td class="${row.isITM_CE ? 'itm-ce-cell' : ''} text-muted">${row.ce.delta.toFixed(2)}</td>
-                <td class="${row.isITM_CE ? 'itm-ce-cell' : ''} text-muted">${(row.ce.oi / 1000).toFixed(0)}k${maxCeBadge}</td>
+                <td class="${row.isITM_CE ? 'itm-ce-cell' : ''} text-muted">${(row.ce.oi / 1000).toFixed(0)}k${ceBuildup}${maxCeBadge}</td>
 
                 <td class="strike-cell ${isSelected ? 'text-neon-cyan' : ''}">
                     ${row.strike} ${row.isATM ? '<small>(ATM)</small>' : ''}${maxPainBadge}
                 </td>
 
-                <td class="${row.isITM_PE ? 'itm-pe-cell' : ''} text-muted">${(row.pe.oi / 1000).toFixed(0)}k${maxPeBadge}</td>
+                <td class="${row.isITM_PE ? 'itm-pe-cell' : ''} text-muted">${(row.pe.oi / 1000).toFixed(0)}k${peBuildup}${maxPeBadge}</td>
                 <td class="${row.isITM_PE ? 'itm-pe-cell' : ''} text-muted">${row.pe.delta.toFixed(2)}</td>
                 <td class="clickable-cell ${row.isITM_PE ? 'itm-pe-cell' : ''}" data-type="PE" data-strike="${row.strike}" data-price="${row.pe.price}">
                     <span class="font-mono text-neon-red">₹${row.pe.price.toFixed(2)}</span>
@@ -810,7 +954,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Trade Plan Summary Formatter
-    function updateTradeSummary(targetSL, greeks, entryStatus, oiConfirmation) {
+    function updateTradeSummary(targetSL, greeks, entryStatus, oiConfirmation, confluence, tradeMgmt, sessionInfo) {
         const entryText = entryStatus ? `
 OPTIMAL ENTRY TARGET: ₹${entryStatus.targetEntry.toFixed(2)} [Status: ${entryStatus.status}]
 CURRENT MARKET LTP  : ₹${entryStatus.currentLTP.toFixed(2)} (${entryStatus.diffPoints >= 0 ? '+' : ''}${entryStatus.diffPoints.toFixed(2)} pts away)
@@ -822,18 +966,33 @@ OI CONFIRMATION     : [${oiConfirmation.badge}] ${oiConfirmation.message}
 PCR METRIC          : ${oiConfirmation.pcr.toFixed(2)} | S&R Walls: Sup ₹${oiConfirmation.maxPeStrike} / Res ₹${oiConfirmation.maxCeStrike}
 ` : '';
 
+        const confText = confluence ? `
+SIGNAL CONFLUENCE   : [${confluence.convictionBadge}] Score: ${confluence.totalScore}/100
+CONFLUENCE ACTION   : ${confluence.summaryAction}
+PILLARS EVALUATED   : VWAP: ${confluence.pillars.vwap.reason} | VIX: ${confluence.pillars.vix.reason}
+` : '';
+
+        const mgmtText = tradeMgmt ? `--------------------------------
+[DYNAMIC TRADE MANAGEMENT]
+• Stage 1 (At T1): ${tradeMgmt.trailAtT1.action} (${tradeMgmt.trailAtT1.statusText})
+• Stage 2 (At T2): ${tradeMgmt.trailAtT2.action} (${tradeMgmt.trailAtT2.statusText})
+• ${tradeMgmt.thetaCutoff.warning}
+` : '';
+
+        const timingText = sessionInfo ? `SESSION TIMING      : ${sessionInfo.istTimeString} (${sessionInfo.phaseLabel})\n` : '';
+
         const text = 
-`[ALPHAGREEKS TRADE PLAN]
+`[ALPHAGREEKS PRECISION TRADE PLAN]
 Instrument: ${state.currentIndex} ${state.strikePrice} ${state.optionType}
 Action: ${state.tradeAction} | Lots: ${state.lotsCount} (Qty: ${targetSL.totalQty})
-${entryText}${oiText}--------------------------------
+${timingText}${entryText}${oiText}${confText}--------------------------------
 STOP LOSS (SL): ₹${targetSL.slPrice.toFixed(2)} (-${targetSL.slPoints.toFixed(2)} pts | Max Risk: -₹${targetSL.maxRiskINR.toLocaleString('en-IN')})
 SL Index Trigger: ${targetSL.slSpotPrice.toFixed(2)}
 
 TARGET 1 (1:1.5): ₹${targetSL.t1.price.toFixed(2)} (+${targetSL.t1.points.toFixed(2)} pts | Profit: +₹${targetSL.t1.profitINR.toLocaleString('en-IN')})
 TARGET 2 (1:2.0): ₹${targetSL.t2.price.toFixed(2)} (+${targetSL.t2.points.toFixed(2)} pts | Profit: +₹${targetSL.t2.profitINR.toLocaleString('en-IN')})
 TARGET 3 (1:3.0): ₹${targetSL.t3.price.toFixed(2)} (+${targetSL.t3.points.toFixed(2)} pts | Profit: +₹${targetSL.t3.profitINR.toLocaleString('en-IN')})
---------------------------------
+${mgmtText}--------------------------------
 Greeks: Δ: ${greeks.delta.toFixed(2)} | Θ: ${greeks.thetaDaily.toFixed(2)} | Γ: ${greeks.gamma.toFixed(4)} | IV: ${state.ivPercent}%
 Break-Even Index: ${targetSL.breakEvenSpot.toFixed(2)} | Effective RR: ${targetSL.effectiveRR}`;
 
@@ -1117,6 +1276,30 @@ Break-Even Index: ${targetSL.breakEvenSpot.toFixed(2)} | Effective RR: ${targetS
         const val = parseFloat(e.target.value);
         state.premiumPaid = isNaN(val) ? null : val;
         recalculateAll();
+    });
+
+    el.inputPremium.addEventListener('blur', () => {
+        if (state.premiumPaid === null) {
+            recalculateAll();
+        }
+    });
+
+    // Fair / Market IV Sync Badge Click
+    el.badgeFairVal.addEventListener('click', () => {
+        if (state.premiumPaid !== null && state.premiumPaid > 0) {
+            const S = parseFloat(state.spotPrice) || 25000;
+            const K = parseFloat(state.strikePrice) || 25000;
+            const T = Math.max(0.0001, (parseFloat(state.dteDays) || 1.0) / 365.0);
+            const r = (parseFloat(state.interestRate) || 6.75) / 100.0;
+            const solvedIV = calculateImpliedVolatility(state.optionType, S, K, T, r, state.premiumPaid);
+            if (solvedIV > 0) {
+                state.ivPercent = solvedIV;
+                el.inputIV.value = solvedIV;
+                if (window.audioEngine) window.audioEngine.playAlert();
+                recalculateAll();
+                renderOptionChain();
+            }
+        }
     });
 
     // Lots Count

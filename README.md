@@ -82,7 +82,39 @@
 
 ---
 
-### 6. ⚡ Interactive Option Chain & Simulator
+### 6. 🎯 Multi-Factor Signal Precision & Confluence Engine (0 - 100)
+- **Composite Confluence Gauge**: Filters out low-probability false breakouts by scoring setup quality across 5 pillars:
+  1. **Spot vs Intraday VWAP (25 pts)**: Verifies that CE buyers trade above VWAP and PE buyers trade below VWAP.
+  2. **Derivatives OI & PCR Momentum (25 pts)**: Evaluates strike protection against institutional walls and rolling $\Delta\text{PCR}$ trends.
+  3. **Greeks Quality & Moneyness (20 pts)**: Rewards the optimal ATM/Near-ITM Delta ($0.42 - 0.65$) sweet-spot while penalizing high Theta decay drag.
+  4. **India VIX Volatility Regime (15 pts)**: Identifies IV expansion opportunities and warns option buyers against IV crush.
+  5. **Entry Precision & Anti-Fakeout (15 pts)**: Validates level crossing with buffer protection.
+- **Conviction Tiers**:
+  - `🟢 HIGH CONVICTION (≥80)`: Prime institutional confluence setup.
+  - `🟡 MODERATE / SCALP (60 - 79)`: Tradeable scalp with disciplined trailing stop.
+  - `🔴 LOW CONVICTION (<60)`: Chop or low follow-through warning.
+
+---
+
+### 7. 🌊 Strike-Level Institutional Buildup Classification ($\Delta\text{OI}$)
+- **4-Quadrant Derivatives Flow Detection**:
+  - `[LB] Long Buildup` (Price $\uparrow$ + OI $\uparrow$): Institutional accumulation (Strong Bullish).
+  - `[SB] Short Buildup` (Price $\downarrow$ + OI $\uparrow$): Institutional call/put writing overhead (Strong Bearish).
+  - `[SC] Short Covering` (Price $\uparrow$ + OI $\downarrow$): Trapped sellers scrambling to exit (Short Squeeze).
+  - `[LU] Long Unwinding` (Price $\downarrow$ + OI $\downarrow$): Profit-taking / buyer liquidation.
+- **Direct Option Chain Badges**: Every strike row in the Option Chain displays live `[LB]`, `[SB]`, `[SC]`, or `[LU]` badges alongside contract OI numbers.
+
+---
+
+### 8. 🛡️ Dynamic Trade Management & Trailing Stop-Loss Schedule
+- **Milestone 1 (Target 1 Reached - 1:1.5 RR)**: Auto-guidance to **Trail Stop-Loss to Breakeven (Cost-to-Cost)** for a risk-free position.
+- **Milestone 2 (Target 2 Reached - 1:2.0 RR)**: Auto-guidance to **Book 50–70% Quantity and Trail SL to Target 1**, locking profits while allowing runners to seek Target 3.
+- **Theta Time-Stop Bleed Warning**: Calculates maximum safe holding time (in minutes) before time decay eats $>25\%$ of stop-loss capital.
+- **Indian Market Session Timing Window**: Live IST status tracker highlighting Opening Auction ($09:15-09:45$), Morning Momentum ($09:45-11:30$), Midday Chop ($11:30-13:30$), Afternoon Expansion ($13:30-14:30$), and Power Hour / 0DTE Gamma Scalp ($14:30-15:30$).
+
+---
+
+### 9. ⚡ Interactive Option Chain & Simulator
 - **Visual S&R Badges**: Option chain directly flags strikes with `[RES WALL]`, `[SUP FLOOR]`, and `[MAX PAIN]`.
 - **1-Click Strike Loading**: Click any strike in the chain to immediately load it into the Greeks, RR, and OI calculator.
 - **What-If Scenario Simulator**: Test underlying moves (-300 to +300 pts) and holding periods (Intraday to 5 days) with HTML5 Canvas payoff visualization.

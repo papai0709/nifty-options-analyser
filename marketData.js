@@ -19,7 +19,10 @@ const INDICES_CONFIG = {
         defaultDTE: 3.5,
         high: 22560.80,
         low: 22440.10,
-        open: 22435.25
+        open: 22435.25,
+        vwap: 22495.10,
+        cumVol: 15400000,
+        cumVolPrice: 15400000 * 22495.10
     },
     SENSEX: {
         name: 'BSE SENSEX',
@@ -34,7 +37,10 @@ const INDICES_CONFIG = {
         defaultDTE: 4.0,
         high: 82140.00,
         low: 81680.50,
-        open: 81710.00
+        open: 81710.00,
+        vwap: 81880.00,
+        cumVol: 8200000,
+        cumVolPrice: 8200000 * 81880.00
     },
     BANKNIFTY: {
         name: 'BANK NIFTY',
@@ -49,7 +55,10 @@ const INDICES_CONFIG = {
         defaultDTE: 3.5,
         high: 51520.00,
         low: 51180.00,
-        open: 51220.00
+        open: 51220.00,
+        vwap: 51320.50,
+        cumVol: 11000000,
+        cumVolPrice: 11000000 * 51320.50
     }
 };
 
@@ -61,6 +70,11 @@ class MarketFeed {
         this.isSimulating = true;
         this.timer = null;
         this.vix = 13.72;
+        this.prevVix = 13.72;
+        this.vixChange = 0;
+        this.pcrHistory = [1.18];
+        this.pcrTrend = 'STABLE';
+        this.strikePreviousData = {};
         this.feedSource = 'SIMULATION'; // 'SIMULATION' or 'ZERODHA'
         this.isKiteConnected = false;
         this.kiteUserName = '';
@@ -219,12 +233,16 @@ class MarketFeed {
             idx.spot = Math.round((idx.spot + delta) * 100) / 100;
             idx.change = Math.round((idx.spot - idx.open) * 100) / 100;
             idx.changePercent = Math.round((idx.change / idx.open) * 10000) / 100;
-            if (idx.spot > idx.high) idx.high = idx.spot;
-            if (idx.spot < idx.low) idx.low = idx.spot;
-            idx.lastTickDir = idx.spot >= prevSpot ? 'up' : 'down';
+            // Update VWAP with realistic volume-weighted ticks
+            const tickVol = Math.round(5000 + Math.random() * 15000);
+            idx.cumVol = (idx.cumVol || 15000000) + tickVol;
+            idx.cumVolPrice = (idx.cumVolPrice || (idx.cumVol * idx.spot)) + (idx.spot * tickVol);
+            idx.vwap = Math.round((idx.cumVolPrice / idx.cumVol) * 100) / 100;
         }
 
+        const prevVixVal = this.vix;
         this.vix = Math.max(10, Math.round((this.vix + (Math.random() - 0.5) * 0.05) * 100) / 100);
+        this.vixChange = Math.round(((this.vix - 13.72) / 13.72) * 1000) / 10;
         this.notify();
     }
 
@@ -310,26 +328,53 @@ class MarketFeed {
             totalCeOI += ceOI;
             totalPeOI += peOI;
 
+            const cePrice = Math.round(ceGreeks.price * 100) / 100;
+            const pePrice = Math.round(peGreeks.price * 100) / 100;
+
+            // Track strike-level price and OI changes for buildup classification
+            const prevStrike = this.strikePreviousData[strike] || null;
+            const cePriceChange = prevStrike ? Math.round((cePrice - prevStrike.cePrice) * 100) / 100 : (i < 0 ? 1.5 : -1.2);
+            const ceOiChange = prevStrike ? (ceOI - prevStrike.ceOI) : (i >= 1 ? 1200 : -600);
+            const pePriceChange = prevStrike ? Math.round((pePrice - prevStrike.pePrice) * 100) / 100 : (i > 0 ? 1.4 : -1.1);
+            const peOiChange = prevStrike ? (peOI - prevStrike.peOI) : (i <= -1 ? 1400 : -800);
+
+            // Save for next interval
+            this.strikePreviousData[strike] = { cePrice, ceOI, pePrice, peOI };
+
+            const ceBuildup = (typeof classifyStrikeBuildup === 'function')
+                ? classifyStrikeBuildup(cePriceChange, ceOiChange)
+                : { type: 'SHORT_BUILDUP', code: 'SB', label: 'Short Buildup', badgeClass: 'buildup-sb', sentiment: 'Bearish' };
+
+            const peBuildup = (typeof classifyStrikeBuildup === 'function')
+                ? classifyStrikeBuildup(pePriceChange, peOiChange)
+                : { type: 'SHORT_BUILDUP', code: 'SB', label: 'Short Buildup', badgeClass: 'buildup-sb', sentiment: 'Bullish' };
+
             strikes.push({
                 strike: strike,
                 isATM: i === 0,
                 isITM_CE: strike < idx.spot,
                 isITM_PE: strike > idx.spot,
                 ce: {
-                    price: Math.round(ceGreeks.price * 100) / 100,
+                    price: cePrice,
+                    priceChange: cePriceChange,
                     delta: Math.round(ceGreeks.delta * 100) / 100,
                     gamma: Math.round(ceGreeks.gamma * 10000) / 10000,
                     theta: Math.round(ceGreeks.thetaDaily * 100) / 100,
                     iv: Math.round(vol * 1000) / 10,
-                    oi: ceOI
+                    oi: ceOI,
+                    oiChange: ceOiChange,
+                    buildup: ceBuildup
                 },
                 pe: {
-                    price: Math.round(peGreeks.price * 100) / 100,
+                    price: pePrice,
+                    priceChange: pePriceChange,
                     delta: Math.round(peGreeks.delta * 100) / 100,
                     gamma: Math.round(peGreeks.gamma * 10000) / 10000,
                     theta: Math.round(peGreeks.thetaDaily * 100) / 100,
                     iv: Math.round(vol * 1000) / 10,
-                    oi: peOI
+                    oi: peOI,
+                    oiChange: peOiChange,
+                    buildup: peBuildup
                 }
             });
         }
@@ -351,8 +396,20 @@ class MarketFeed {
             }
         }
 
-        // 2. Calculate Index Put-Call Ratio (PCR)
+        // 2. Calculate Index Put-Call Ratio (PCR) & PCR Trend Momentum
         const pcr = totalCeOI > 0 ? Math.round((totalPeOI / totalCeOI) * 100) / 100 : 1.0;
+        this.pcrHistory.push(pcr);
+        if (this.pcrHistory.length > 10) this.pcrHistory.shift();
+
+        let pcrTrend = 'STABLE';
+        if (this.pcrHistory.length >= 3) {
+            const first = this.pcrHistory[0];
+            const last = this.pcrHistory[this.pcrHistory.length - 1];
+            if (last - first >= 0.03) pcrTrend = 'RISING';
+            else if (first - last >= 0.03) pcrTrend = 'FALLING';
+        }
+        this.pcrTrend = pcrTrend;
+
         let pcrSentiment = 'NEUTRAL';
         let pcrBadgeClass = 'pcr-neutral';
         let pcrDescription = 'Balanced Market Sentiment (Two-Way Options Battle)';
@@ -404,10 +461,15 @@ class MarketFeed {
             s.peOIPct = totalPeOI > 0 ? Math.round((s.pe.oi / totalPeOI) * 1000) / 10 : 0;
         }
 
+        const vwapVal = idx.vwap || idx.spot;
+        const vwapDiff = Math.round((idx.spot - vwapVal) * 100) / 100;
+        const vwapPct = Math.round((vwapDiff / vwapVal) * 10000) / 100;
+
         const oiAnalytics = {
             totalCeOI,
             totalPeOI,
             pcr,
+            pcrTrend: this.pcrTrend,
             pcrSentiment,
             pcrBadgeClass,
             pcrDescription,
@@ -415,7 +477,11 @@ class MarketFeed {
             maxCeOI,
             maxPeStrike,
             maxPeOI,
-            maxPainStrike
+            maxPainStrike,
+            vwap: vwapVal,
+            vwapDiff,
+            vwapPct,
+            vixChange: this.vixChange
         };
 
         return {
